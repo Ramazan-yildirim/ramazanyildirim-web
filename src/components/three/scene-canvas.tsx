@@ -3,6 +3,7 @@
 import { Canvas, useThree } from "@react-three/fiber";
 import { useCallback, useEffect, useState } from "react";
 import { useMediaQuery } from "@/hooks/use-media-query";
+import { CoreStage } from "@/components/three/core-stage";
 import { SceneEnvironment } from "@/components/three/scene-environment";
 
 function ContextGuard({ onLost }: { onLost: () => void }) {
@@ -42,6 +43,7 @@ export default function SceneCanvas() {
     >
       <ContextGuard onLost={handleContextLost} />
       <SceneEnvironment />
+      <CoreStage compact={compact} />
     </Canvas>
   );
 }

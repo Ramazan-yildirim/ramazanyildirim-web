@@ -33,8 +33,7 @@ integrations await verified content.
 ## Phase 2 scene foundation
 
 The fixed background contains one transparent React Three Fiber Canvas behind
-the HTML. It uses a perspective camera and three lights, without meshes, models,
-particles, controls, or animation. The CSS atmosphere stays visible underneath.
+the HTML. It uses a perspective camera and directional lighting. The CSS atmosphere stays visible underneath.
 
 The renderer is dynamically imported on the client after an idle callback (with
 a timeout fallback). Reduced-motion visitors retain the CSS background and do
@@ -52,8 +51,27 @@ Context loss removes the Canvas for the lifetime of that scene instance. The CSS
 background remains available during loading, with WebGL unavailable, and after
 errors. All user-facing information lives in HTML.
 
+## Phase 3 AI Core prototype
+
+The dormant core is built entirely from small procedural geometries; there are
+no downloaded models, textures, postprocessing effects, particles, or new packages.
+Three spherical shell sectors use dark metallic materials. A faceted inner
+energy mesh, segmented equatorial trim, and a polar collar establish the form.
+Desktop adds one thin outer arc; mobile omits it and reduces mesh subdivisions.
+
+The shell sectors are independent, named groups under ai-core, ready for the
+future transformation phase. AICore owns the object; CoreStage owns responsive
+placement and hero visibility. Lighting remains in SceneEnvironment.
+
+The core is deliberately static in this phase. Demand rendering, DPR limits,
+reduced-motion behavior, and WebGL fallbacks from Phase 2 remain in place.
+A simple IntersectionObserver hides the object when less than 55% of the hero
+is visible, keeping it out of later text sections. This is only a visibility
+boundary, not a scroll animation. The Canvas stays mounted during navigation.
+
 ## Next phase
 
-After Phase 2 approval, build the AI Core visual prototype inside the existing
-scene. Camera choreography and GSAP ScrollTrigger integration belong to later
-phases. Do not add additional canvases or client-side AI models.
+After Phase 3 approval, establish the GSAP ScrollTrigger architecture with
+cleanup, section references, and a shared scroll state. Activation, camera
+choreography, and separation into three AI entities belong to the subsequent
+sequence phases. Keep one Canvas and all essential content in HTML.
