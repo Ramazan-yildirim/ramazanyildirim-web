@@ -1,0 +1,24 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+
+    container_name: ramazanyildirim-web
+
+    ports:
+      - "3000:3000"
+
+    volumes:
+      - .:/app
+      - node_modules:/app/node_modules
+
+    environment:
+      NODE_ENV: development
+      WATCHPACK_POLLING: "true"
+
+    stdin_open: true
+    tty: true
+
+volumes:
+  node_modules:
