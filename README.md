@@ -1,36 +1,42 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Ramazan // Digital Mind
 
-## Getting Started
+Ramazan Yildirim’s personal website, built with Next.js App Router, React,
+TypeScript, and Tailwind CSS. Development and checks run inside Docker.
 
-First, run the development server:
+## Development
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+```sh
+docker compose up -d
+docker compose exec web npm run lint
+docker compose exec web npm run build
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The development site is available at http://localhost:3000. Source files are
+mounted into the web service; ordinary edits do not require rebuilding its image.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Phase 1 architecture
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- src/app: route composition, metadata, fonts, and global design tokens/styles.
+- src/components/layout: navigation, footer, and the fixed decorative background.
+- src/components/sections: hero, identity, and data-driven placeholder sections.
+- src/components/ui: the shared semantic section shell.
+- src/data/site.ts: navigation and neutral content awaiting verified details.
 
-## Learn More
+All current components are Server Components. Navigation uses ordinary anchors
+and remains usable without JavaScript. The narrow-screen navigation stays visible;
+there is no menu state or extra client bundle. Keyboard focus, a skip link, and
+reduced-motion scrolling are included.
 
-To learn more about Next.js, take a look at the following resources:
+The background layer sits below the HTML content and is reserved for one future
+React Three Fiber Canvas. Phase 1 imports no Three.js, R3F, Drei, or GSAP code.
+Folders for 3D, hooks, models, textures, and other assets should be added when
+they have an actual implementation; no empty scaffolding is required.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Real projects, experience, contact details, and AI integrations are not yet
+provided. Placeholder copy makes no claims about achievements or active services.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Next phase
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+After Phase 1 approval, introduce the single Canvas boundary, lazy loading,
+responsive DPR limits, and a usable fallback. The AI Core visual prototype and
+scroll-driven sequences belong to later phases.
