@@ -8,6 +8,7 @@ TypeScript, Tailwind CSS, and React Three Fiber. Development and checks run in D
 ```sh
 docker compose up -d
 docker compose exec web npm run lint
+docker compose exec web npm run test:scroll
 docker compose exec web npm run build
 ```
 
@@ -65,13 +66,56 @@ placement and hero visibility. Lighting remains in SceneEnvironment.
 
 The core is deliberately static in this phase. Demand rendering, DPR limits,
 reduced-motion behavior, and WebGL fallbacks from Phase 2 remain in place.
-A simple IntersectionObserver hides the object when less than 55% of the hero
-is visible, keeping it out of later text sections. This is only a visibility
-boundary, not a scroll animation. The Canvas stays mounted during navigation.
+The core keeps the Phase 3 visibility rule: at least 55% of the hero must be
+visible. Phase 4 now supplies that value through the common scroll state.
+The Canvas stays mounted during navigation.
+
+## Phase 4 ScrollTrigger architecture
+
+ScrollExperience is a small client boundary around server-rendered children.
+It owns a per-page external store; there is no mutable global store shared across
+requests. The HTML sections remain Server Components and expose typed
+`data-scroll-section` references, with their IDs defined in src/data/site.ts.
+
+ScrollController is dynamically loaded only when reduced motion is off. It
+registers GSAP and ScrollTrigger and creates one scoped trigger named
+`digital-mind:page`. Native scrolling and anchors remain in control: no pinning,
+scroll interception, scrub timeline, camera animation, or activation sequence is
+introduced in this phase.
+
+The store provides page progress (0-1), direction, active section, per-section
+progress (0-1), and core visibility. Section progress starts when the section top
+reaches the viewport midpoint and ends when its bottom passes that midpoint;
+these bounds are clamped to the document's scrollable range. The active section
+is the last section whose top has passed 24px below the sticky header. At the
+end of the document, the final section is active. Identity maps to Home in
+the six-link navigation.
+
+Section geometry is measured on refresh and reused during scroll updates.
+ResizeObserver, font readiness/font loading events, and pageshow schedule a
+coalesced refresh; ScrollTrigger also handles viewport resize. Direct hash links
+and restored scroll positions use the actual current scroll offset.
+
+React consumers select only the values they need: navigation reads activeSection
+and the Canvas boundary reads coreVisible. Continuous progress updates therefore
+do not re-render those components. Future scene sequences can subscribe directly
+to the store and invalidate the demand-rendered Canvas when a transform changes.
+
+useGSAP owns trigger cleanup. Observer subscriptions, font/pageshow listeners,
+and queued refresh frames are explicitly cleaned up. Teardown resets the store;
+reduced-motion changes unmount the controller and restore the static experience.
+The implementation does not call killAll or modify global ScrollTrigger defaults.
+
+The seven Node tests using existing dependencies exercise normalized endpoints, direct/backward
+jumps, the visibility boundary, overscroll and short documents, changed section
+measurements, store isolation/unsubscription, and short-section anchor selection. They use the already installed
+TypeScript compiler and run through `npm run test:scroll` inside Docker.
+
+Implementation reference: [GSAP React lifecycle documentation](https://gsap.com/resources/React/).
 
 ## Next phase
 
-After Phase 3 approval, establish the GSAP ScrollTrigger architecture with
-cleanup, section references, and a shared scroll state. Activation, camera
-choreography, and separation into three AI entities belong to the subsequent
-sequence phases. Keep one Canvas and all essential content in HTML.
+After Phase 4 approval, use the shared scroll state to build the AI Core activation
+sequence: controlled rotation, internal energy, and camera approach. Separation
+into three entities belongs to Phase 6. Preserve one Canvas and all essential
+content in HTML.

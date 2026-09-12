@@ -3,6 +3,7 @@
 import { Canvas, useThree } from "@react-three/fiber";
 import { useCallback, useEffect, useState } from "react";
 import { useMediaQuery } from "@/hooks/use-media-query";
+import { useScrollSelector } from "@/components/layout/scroll-experience";
 import { CoreStage } from "@/components/three/core-stage";
 import { SceneEnvironment } from "@/components/three/scene-environment";
 
@@ -24,6 +25,7 @@ function ContextGuard({ onLost }: { onLost: () => void }) {
 
 export default function SceneCanvas() {
   const compact = useMediaQuery("(max-width: 700px)", true);
+  const coreVisible = useScrollSelector((state) => state.coreVisible);
   const [contextLost, setContextLost] = useState(false);
   const handleContextLost = useCallback(() => setContextLost(true), []);
 
@@ -43,7 +45,7 @@ export default function SceneCanvas() {
     >
       <ContextGuard onLost={handleContextLost} />
       <SceneEnvironment />
-      <CoreStage compact={compact} />
+      <CoreStage compact={compact} visible={coreVisible} />
     </Canvas>
   );
 }

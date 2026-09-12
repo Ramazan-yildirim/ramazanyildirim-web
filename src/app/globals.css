@@ -127,7 +127,7 @@ a:focus-visible, [tabindex="-1"]:focus-visible {
   transition: color 160ms ease;
 }
 
-.navigation a:hover, .text-link:hover { color: var(--accent); }
+.navigation a[aria-current="location"], .navigation a:hover, .text-link:hover { color: var(--accent); }
 
 .hero {
   min-height: calc(100svh - 89px);

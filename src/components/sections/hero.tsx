@@ -1,6 +1,6 @@
 export function Hero() {
   return (
-    <section id="home" className="hero page-width" aria-labelledby="hero-title">
+    <section id="home" data-scroll-section="home" className="hero page-width" aria-labelledby="hero-title">
       <div className="hero-topline eyebrow">
         <p><span className="status-dot" aria-hidden="true" /> PERSONAL DIGITAL SPACE</p>
         <p>00 / SYSTEM BOOT</p>

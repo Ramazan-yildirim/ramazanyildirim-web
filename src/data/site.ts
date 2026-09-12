@@ -50,3 +50,6 @@ export const portfolioSections = [
     note: "Contact details will be available here soon.",
   },
 ] as const;
+
+export const sectionIds = ["home", "identity", ...portfolioSections.map((section) => section.id)] as const;
+export type SectionId = (typeof sectionIds)[number];

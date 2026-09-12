@@ -1,4 +1,4 @@
-import { navigation } from "@/data/site";
+import { NavigationLinks } from "@/components/layout/navigation-links";
 
 export function SiteHeader() {
   return (
@@ -8,11 +8,7 @@ export function SiteHeader() {
           RY<span aria-hidden="true">.</span>
         </a>
         <nav aria-label="Main navigation">
-          <ul className="navigation">
-            {navigation.map((item) => (
-              <li key={item.href}><a href={item.href}>{item.label}</a></li>
-            ))}
-          </ul>
+          <NavigationLinks />
         </nav>
       </div>
     </header>
