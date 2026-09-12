@@ -1,17 +1,15 @@
-import { useThree } from "@react-three/fiber";
+import { useRef } from "react";
+import type { Group } from "three";
+import type { ScrollStore } from "@/lib/scroll-state";
 import { AICore } from "@/components/three/ai-core";
+import { useCoreSequence } from "@/components/three/use-core-sequence";
 
-export function CoreStage({ compact, visible }: { compact: boolean; visible: boolean }) {
-  const viewport = useThree((state) => state.viewport);
-  const size = useThree((state) => state.size);
-  const x = viewport.width * (compact ? 0.25 : 0.27);
-  const y = compact ? (0.5 - 250 / size.height) * viewport.height : 0;
-  const scale = compact
-    ? viewport.width * 0.12
-    : Math.min(viewport.width * 0.145, viewport.height * 0.27);
+export function CoreStage({ compact, store }: { compact: boolean; store: ScrollStore }) {
+  const stage = useRef<Group>(null);
+  useCoreSequence(stage, store, compact);
 
   return (
-    <group name="core-stage" position={[x, y, 0]} scale={scale} visible={visible}>
+    <group ref={stage} name="core-stage" visible={false}>
       <AICore compact={compact} />
     </group>
   );

@@ -275,3 +275,54 @@ a:focus-visible, [tabindex="-1"]:focus-visible {
   html { scroll-behavior: auto; }
   .navigation a { transition: none; }
 }
+
+/* A native sticky reading area gives the scroll-driven core room to activate. */
+.core-sequence {
+  min-height: 220svh;
+  border-top: 1px solid var(--border);
+}
+.core-sequence-sticky {
+  position: sticky;
+  top: 7rem;
+  min-height: calc(100svh - 7rem);
+  display: flex;
+  align-items: center;
+  padding-block: 3rem;
+}
+.core-sequence-copy { width: 42%; max-width: 530px; }
+.core-sequence h2 {
+  margin-top: 1.5rem;
+  font-size: clamp(2.1rem, 4.8vw, 4.5rem);
+  font-weight: 400;
+  line-height: 1.08;
+  letter-spacing: -0.045em;
+}
+.core-sequence-status { margin-top: 2.5rem; }
+.core-stages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  padding: 0;
+  list-style: none;
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 0.65rem;
+  color: var(--muted);
+}
+.core-stages li { padding-block: 0.7rem; border-top: 1px solid var(--border); }
+.core-stages [aria-current="step"] { color: var(--accent); border-color: var(--accent); }
+.core-sequence-hint { max-width: 310px; margin-top: 0.75rem; font-size: 0.75rem; line-height: 1.7; color: var(--muted); }
+
+@media (max-width: 700px) {
+  .core-sequence { min-height: 210svh; }
+  .core-sequence-sticky { top: 11rem; min-height: calc(100svh - 11rem); align-items: flex-start; padding-block: 2rem; }
+  .core-sequence-copy { width: 100%; max-width: none; min-height: calc(100svh - 15rem); display: flex; flex-direction: column; }
+  .core-sequence h2 { font-size: clamp(2rem, 8vw, 2.6rem); margin-top: 1rem; }
+  .core-sequence .section-description { margin-top: 1rem; max-width: 270px; }
+  .core-sequence-status { margin-top: auto; padding-top: 1.5rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .core-sequence { min-height: auto; }
+  .core-sequence-sticky { position: relative; top: auto; min-height: auto; padding-block: 5rem; }
+  .core-sequence-copy { min-height: auto; }
+  .core-sequence-status { margin-top: 2rem; }
+}

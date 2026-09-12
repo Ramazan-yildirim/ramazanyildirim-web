@@ -11,7 +11,6 @@ export type ScrollSnapshot = {
   progress: number;
   direction: 1 | -1;
   activeSection: SectionId | null;
-  coreVisible: boolean;
   sections: Readonly<Partial<Record<SectionId, number>>>;
 };
 
@@ -20,7 +19,6 @@ export const initialScrollSnapshot: ScrollSnapshot = {
   progress: 0,
   direction: 1,
   activeSection: null,
-  coreVisible: false,
   sections: {},
 };
 
@@ -38,7 +36,6 @@ export function calculateScrollSnapshot(
 ): ScrollSnapshot {
   const sections: Partial<Record<SectionId, number>> = {};
   let activeSection: SectionId | null = measurements[0]?.id ?? null;
-  let coreVisible = false;
 
   for (const section of measurements) {
     const start = Math.max(0, section.top - viewportHeight / 2);
@@ -47,19 +44,14 @@ export function calculateScrollSnapshot(
 
     // Native anchor scrolling rounds offsets while layout can retain subpixels.
     if (section.top <= scrollY + activationOffset + 1) activeSection = section.id;
-    if (section.id === "home") {
-      const visibleHeight = Math.max(0,
-        Math.min(section.top + section.height, scrollY + viewportHeight) - Math.max(section.top, scrollY),
-      );
-      coreVisible = visibleHeight / Math.max(1, section.height) >= 0.55;
-    }
+
   }
 
   if (maxScroll > 0 && scrollY >= maxScroll - 1) {
     activeSection = measurements.at(-1)?.id ?? null;
   }
 
-  return { ready: true, progress: clamp(scrollY / Math.max(1, maxScroll)), direction, activeSection, coreVisible, sections };
+  return { ready: true, progress: clamp(scrollY / Math.max(1, maxScroll)), direction, activeSection, sections };
 }
 
 export function createScrollStore() {
@@ -78,7 +70,6 @@ export function createScrollStore() {
         snapshot.progress === next.progress &&
         snapshot.direction === next.direction &&
         snapshot.activeSection === next.activeSection &&
-        snapshot.coreVisible === next.coreVisible &&
         Object.keys(snapshot.sections).length === Object.keys(next.sections).length &&
         Object.entries(next.sections).every(([id, value]) => snapshot.sections[id as SectionId] === value)
       ) return;

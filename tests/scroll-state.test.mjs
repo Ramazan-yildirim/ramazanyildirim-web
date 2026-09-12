@@ -23,13 +23,11 @@ test("page endpoints and the short final section reach normalized endpoints", ()
   assert.equal(first.progress, 0);
   assert.equal(first.sections.home, 0);
   assert.equal(first.activeSection, "home");
-  assert.equal(first.coreVisible, true);
 
   const last = sample(1500);
   assert.equal(last.progress, 1);
   assert.equal(last.sections.contact, 1);
   assert.equal(last.activeSection, "contact");
-  assert.equal(last.coreVisible, false);
 });
 
 test("backward jumps compute their actual destination without intermediate callbacks", () => {
@@ -39,13 +37,8 @@ test("backward jumps compute their actual destination without intermediate callb
   assert.equal(back.direction, -1);
   assert.equal(back.progress, 0.4);
   assert.equal(back.sections.contact, 0);
-  assert.equal(back.coreVisible, false);
 });
 
-test("the phase 3 hero visibility boundary stays at 55 percent", () => {
-  assert.equal(sample(405).coreVisible, true);
-  assert.equal(sample(406).coreVisible, false);
-});
 
 test("overscroll, short documents, and missing sections produce finite bounded values", () => {
   for (const state of [
@@ -57,7 +50,6 @@ test("overscroll, short documents, and missing sections produce finite bounded v
       assert.ok(Number.isFinite(value) && value >= 0 && value <= 1);
     }
   }
-  assert.equal(calculateScrollSnapshot([], 0, 900, 0, 1).coreVisible, false);
 });
 
 test("refreshed section measurements change the active destination", () => {

@@ -14,7 +14,7 @@ export function useScrollStore() {
   return store;
 }
 
-// Select stable values (such as activeSection or coreVisible) to avoid rendering
+// Select stable values (such as activeSection or a sequence stage) to avoid rendering
 // React components for every change in continuous scroll progress.
 export function useScrollSelector<T>(selector: (snapshot: ScrollSnapshot) => T) {
   const store = useScrollStore();

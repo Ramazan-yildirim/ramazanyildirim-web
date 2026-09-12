@@ -1,7 +1,8 @@
 # Ramazan // Digital Mind
 
 Ramazan Yildirim's personal website, built with Next.js App Router, React,
-TypeScript, Tailwind CSS, and React Three Fiber. Development and checks run in Docker.
+TypeScript, Tailwind CSS, React Three Fiber, and GSAP. Development and checks run
+in Docker.
 
 ## Development
 
@@ -17,105 +18,108 @@ mounted into the web service; ordinary edits do not require rebuilding its image
 
 ## Architecture
 
-- src/app: route composition, metadata, fonts, and global design tokens/styles.
-- src/components/layout: navigation, footer, and the fixed decorative background.
-- src/components/sections: hero, identity, and data-driven placeholder sections.
-- src/components/ui: the shared semantic section shell.
-- src/components/three: isolated client-side scene loading, Canvas, lighting, and error handling.
-- src/data/site.ts: navigation and neutral content awaiting verified details.
+- src/app: route composition, metadata, fonts, and global styles.
+- src/components/layout: navigation, footer, fixed background, and scroll controller.
+- src/components/sections: server-rendered hero, identity, AI Core, and content sections.
+- src/components/ui: shared semantic section shell.
+- src/components/three: isolated client-side loading, Canvas, model, lighting, and animation.
+- src/data/site.ts: typed section IDs, navigation, and neutral placeholder content.
 - src/hooks/use-media-query.ts: reactive browser preferences with an SSR snapshot.
-- src/lib/webgl.ts: WebGL2 availability check with immediate probe-context disposal.
+- src/lib/scroll-state.ts: normalized scroll measurements and per-page external store.
+- src/lib/core-sequence.ts: initial camera/pose and scroll-to-sequence mapping.
+- src/lib/webgl.ts: WebGL2 probe with immediate context disposal.
 
-HTML sections remain Server Components. Navigation uses ordinary anchors and
-works without JavaScript. Keyboard focus, a skip link, and reduced-motion
-scrolling are included. Real projects, experience, contact details, and AI
-integrations await verified content.
+HTML sections remain Server Components; navigation and the three-step core status
+are small client consumers. Ordinary anchors, keyboard focus, and a skip link
+remain available. Real projects, experience, contact details, and AI integrations
+await verified content.
 
-## Phase 2 scene foundation
+## One demand-rendered scene
 
-The fixed background contains one transparent React Three Fiber Canvas behind
-the HTML. It uses a perspective camera and directional lighting. The CSS atmosphere stays visible underneath.
+One transparent fixed Canvas sits behind the HTML. It loads dynamically after an
+idle callback, uses a perspective camera, and retains the CSS atmosphere below it.
+Reduced-motion visitors do not load the renderer. Motion preference changes apply
+immediately. A WebGL2 probe releases its context without adding a second canvas.
 
-The renderer is dynamically imported on the client after an idle callback (with
-a timeout fallback). Reduced-motion visitors retain the CSS background and do
-not load the renderer. Changes to the motion preference apply immediately.
-A WebGL2 probe checks support before loading the renderer and releases its
-context immediately; it never inserts a second canvas into the document.
+The renderer uses DPR 1 up to 700px and a maximum of 1.5 above that breakpoint.
+Antialiasing and shadows are disabled, and the renderer requests a low-power GPU.
+Resize adjusts the camera and resolution without recreating the Canvas; ordinary
+scrolling does not cause canvas resize measurements.
 
-The scene renders on demand, with DPR 1 on screens up to 700px and a maximum of
-1.5 on larger screens. Antialiasing and shadows are disabled, and the renderer
-requests a low-power GPU. Resize updates the camera and resolution without
-recreating the Canvas. Scrolling does not trigger canvas resize measurements.
+A scene-local error boundary isolates render/import failures. Context loss removes
+the Canvas for that scene instance. HTML content remains available with WebGL
+unavailable or after errors.
 
-A scene-local error boundary isolates render/import failures from the page.
-Context loss removes the Canvas for the lifetime of that scene instance. The CSS
-background remains available during loading, with WebGL unavailable, and after
-errors. All user-facing information lives in HTML.
+## AI Core
 
-## Phase 3 AI Core prototype
+The procedural model has three named metallic spherical shell groups, a faceted
+energy mesh, equatorial trim, and a polar collar. Desktop includes one thin outer
+arc; mobile omits it and reduces subdivisions. No external models, textures,
+particles, postprocessing, or extra dependencies are used.
 
-The dormant core is built entirely from small procedural geometries; there are
-no downloaded models, textures, postprocessing effects, particles, or new packages.
-Three spherical shell sectors use dark metallic materials. A faceted inner
-energy mesh, segmented equatorial trim, and a polar collar establish the form.
-Desktop adds one thin outer arc; mobile omits it and reduces mesh subdivisions.
+AICore owns the model, CoreStage binds it to useCoreSequence, and SceneEnvironment
+owns lighting. The separate shell groups remain ready for the next transformation
+phase.
 
-The shell sectors are independent, named groups under ai-core, ready for the
-future transformation phase. AICore owns the object; CoreStage owns responsive
-placement and hero visibility. Lighting remains in SceneEnvironment.
+## Shared scroll state
 
-The core is deliberately static in this phase. Demand rendering, DPR limits,
-reduced-motion behavior, and WebGL fallbacks from Phase 2 remain in place.
-The core keeps the Phase 3 visibility rule: at least 55% of the hero must be
-visible. Phase 4 now supplies that value through the common scroll state.
-The Canvas stays mounted during navigation.
+ScrollExperience owns a per-page external store, with no mutable state shared
+across requests. Eight server-rendered sections expose data-scroll-section IDs.
+ScrollController loads only when reduced motion is off and creates one scoped
+ScrollTrigger named digital-mind:page. Native scrolling and anchors remain in
+control; there is no scroll interception or ScrollTrigger pinning.
 
-## Phase 4 ScrollTrigger architecture
+The store provides readiness, page progress, direction, active section, and
+per-section progress. Section progress runs from the section top reaching the
+viewport midpoint to its bottom passing that midpoint, clamped to the document's
+scrollable range. The active section is the last section beginning 24px below the
+sticky header, with a one-pixel rounding tolerance. The document end selects the
+last section. Identity and AI Core map to Home in the six-link navigation.
 
-ScrollExperience is a small client boundary around server-rendered children.
-It owns a per-page external store; there is no mutable global store shared across
-requests. The HTML sections remain Server Components and expose typed
-`data-scroll-section` references, with their IDs defined in src/data/site.ts.
+Geometry is cached on refresh. ResizeObserver, font readiness/loading events,
+pageshow, and native ScrollTrigger resize handling keep it current. Direct links
+and restored scroll positions use the current offset.
 
-ScrollController is dynamically loaded only when reduced motion is off. It
-registers GSAP and ScrollTrigger and creates one scoped trigger named
-`digital-mind:page`. Native scrolling and anchors remain in control: no pinning,
-scroll interception, scrub timeline, camera animation, or activation sequence is
-introduced in this phase.
+React consumers select only active section or the discrete core stage. The scene
+subscribes directly to progress, without React renders on every scroll event.
+useGSAP owns scoped cleanup; observers, event listeners, subscriptions, and queued
+refresh frames are cleaned up explicitly. Teardown resets the store. No global
+ScrollTrigger defaults or killAll calls are used.
 
-The store provides page progress (0-1), direction, active section, per-section
-progress (0-1), and core visibility. Section progress starts when the section top
-reaches the viewport midpoint and ends when its bottom passes that midpoint;
-these bounds are clamped to the document's scrollable range. The active section
-is the last section whose top has passed 24px below the sticky header. At the
-end of the document, the final section is active. Identity maps to Home in
-the six-link navigation.
+## Phase 5 activation sequence
 
-Section geometry is measured on refresh and reused during scroll updates.
-ResizeObserver, font readiness/font loading events, and pageshow schedule a
-coalesced refresh; ScrollTrigger also handles viewport resize. Direct hash links
-and restored scroll positions use the actual current scroll offset.
+The hero core begins dormant. Early scrolling rotates it and raises internal
+energy; it fades out for Identity. The AI Core section uses a CSS-sticky copy block
+and a paused GSAP timeline driven by the shared ScrollTrigger state. The core
+returns beside the text, rotates, brightens, and receives stronger rim lighting
+while the camera approaches. It fades before the following AI Lab content.
 
-React consumers select only the values they need: navigation reads activeSection
-and the Canvas boundary reads coreVisible. Continuous progress updates therefore
-do not re-render those components. Future scene sequences can subscribe directly
-to the store and invalidate the demand-rendered Canvas when a transform changes.
+Scrolling backward reverses the same timeline. Direct links seek immediately to
+the correct pose. Camera movement follows the core's viewing ray, keeping its
+screen position stable. Responsive placement uses the baseline camera distance so
+resizing mid-sequence does not compound the zoom. Mobile centers the core below
+the copy and reduces camera travel, rotation, and lighting.
 
-useGSAP owns trigger cleanup. Observer subscriptions, font/pageshow listeners,
-and queued refresh frames are explicitly cleaned up. Teardown resets the store;
-reduced-motion changes unmount the controller and restore the static experience.
-The implementation does not call killAll or modify global ScrollTrigger defaults.
+The Canvas renders only when a visible pose changes or needs clearing. There is
+no independent animation loop, and later hidden sections do not keep redrawing
+the scene. Reduced-motion and no-JavaScript layouts collapse the long activation
+section and retain its text. The Dormant / Energizing / Active labels describe the
+visual sequence; they do not claim a live AI service.
 
-The seven Node tests using existing dependencies exercise normalized endpoints, direct/backward
-jumps, the visibility boundary, overscroll and short documents, changed section
-measurements, store isolation/unsubscription, and short-section anchor selection. They use the already installed
-TypeScript compiler and run through `npm run test:scroll` inside Docker.
+## Verification
 
-Implementation reference: [GSAP React lifecycle documentation](https://gsap.com/resources/React/).
+Eleven Node tests run through test:scroll using the installed TypeScript compiler
+and real GSAP timeline. They cover scroll normalization, direct/backward jumps,
+overscroll, short documents, refreshed measurements, isolated stores, anchor
+selection, activation mapping, responsive poses, reverse seeking, and timeline
+recreation.
+
+Browser checks should cover forward/reverse scrolling, idle rendering, responsive
+resize, navigation, direct links, motion preference changes, WebGL/context-loss
+fallbacks, and no-JavaScript content in addition to lint and production build.
 
 ## Next phase
 
-After Phase 4 approval, use the shared scroll state to build the AI Core activation
-sequence: controlled rotation, internal energy, and camera approach. Separation
-into three entities belongs to Phase 6. Preserve one Canvas and all essential
-content in HTML.
+Phase 6 separates the activated core into three AI entities. Keep one Canvas,
+preserve accessible HTML, and connect real AI functionality only through future
+APIs.

@@ -5,7 +5,7 @@ import { useScrollSelector } from "@/components/layout/scroll-experience";
 
 export function NavigationLinks() {
   const activeSection = useScrollSelector((state) => state.activeSection);
-  const activeLink = activeSection === "identity" ? "home" : activeSection;
+  const activeLink = (activeSection === "identity" || activeSection === "ai-core") ? "home" : activeSection;
 
   return (
     <ul className="navigation">

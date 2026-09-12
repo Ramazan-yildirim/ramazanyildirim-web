@@ -11,7 +11,7 @@ export const navigation = [
 export const portfolioSections = [
   {
     id: "ai-lab",
-    number: "02",
+    number: "03",
     label: "AI LAB",
     title: "A space for intelligence.",
     description: "A place for AI systems, experiments, and the ideas behind them.",
@@ -19,7 +19,7 @@ export const portfolioSections = [
   },
   {
     id: "projects",
-    number: "03",
+    number: "04",
     label: "PROJECTS",
     title: "Ideas, made tangible.",
     description: "A closer look at software projects: the problem, the process, and the result.",
@@ -27,7 +27,7 @@ export const portfolioSections = [
   },
   {
     id: "experience",
-    number: "04",
+    number: "05",
     label: "EXPERIENCE",
     title: "The path behind the work.",
     description: "The professional journey behind this digital space.",
@@ -35,7 +35,7 @@ export const portfolioSections = [
   },
   {
     id: "about",
-    number: "05",
+    number: "06",
     label: "ABOUT",
     title: "The person behind the systems.",
     description: "Ramazan Yildirim. Computer Engineer.",
@@ -43,7 +43,7 @@ export const portfolioSections = [
   },
   {
     id: "contact",
-    number: "06",
+    number: "07",
     label: "CONTACT",
     title: "Every connection starts somewhere.",
     description: "A place for conversations about AI, software, and what comes next.",
@@ -51,5 +51,5 @@ export const portfolioSections = [
   },
 ] as const;
 
-export const sectionIds = ["home", "identity", ...portfolioSections.map((section) => section.id)] as const;
+export const sectionIds = ["home", "identity", "ai-core", ...portfolioSections.map((section) => section.id)] as const;
 export type SectionId = (typeof sectionIds)[number];

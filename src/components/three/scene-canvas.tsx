@@ -3,7 +3,8 @@
 import { Canvas, useThree } from "@react-three/fiber";
 import { useCallback, useEffect, useState } from "react";
 import { useMediaQuery } from "@/hooks/use-media-query";
-import { useScrollSelector } from "@/components/layout/scroll-experience";
+import { useScrollStore } from "@/components/layout/scroll-experience";
+import { coreCamera } from "@/lib/core-sequence";
 import { CoreStage } from "@/components/three/core-stage";
 import { SceneEnvironment } from "@/components/three/scene-environment";
 
@@ -25,7 +26,7 @@ function ContextGuard({ onLost }: { onLost: () => void }) {
 
 export default function SceneCanvas() {
   const compact = useMediaQuery("(max-width: 700px)", true);
-  const coreVisible = useScrollSelector((state) => state.coreVisible);
+  const store = useScrollStore();
   const [contextLost, setContextLost] = useState(false);
   const handleContextLost = useCallback(() => setContextLost(true), []);
 
@@ -39,13 +40,13 @@ export default function SceneCanvas() {
       fallback={null}
       frameloop="demand"
       dpr={compact ? 1 : [1, 1.5]}
-      camera={{ position: [0, 0, 8], fov: 35, near: 0.1, far: 100 }}
+      camera={coreCamera}
       gl={{ alpha: true, antialias: false, powerPreference: "low-power" }}
       resize={{ scroll: false, debounce: { scroll: 0, resize: 100 } }}
     >
       <ContextGuard onLost={handleContextLost} />
       <SceneEnvironment />
-      <CoreStage compact={compact} visible={coreVisible} />
+      <CoreStage compact={compact} store={store} />
     </Canvas>
   );
 }

@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:scroll": "node --test tests/scroll-state.test.mjs"
+    "test:scroll": "node --test tests/*.test.mjs"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",
