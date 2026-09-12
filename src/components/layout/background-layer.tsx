@@ -1,4 +1,9 @@
+import { SceneLoader } from "@/components/three/scene-loader";
+
 export function BackgroundLayer() {
-  // The single fixed Canvas will live in this layer in the next phase.
-  return <div className="background-layer" aria-hidden="true" />;
+  return (
+    <div className="background-layer" aria-hidden="true">
+      <SceneLoader />
+    </div>
+  );
 }
