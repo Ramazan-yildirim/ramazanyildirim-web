@@ -1,0 +1,66 @@
+@import "tailwindcss";
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+body {
+  background: #040506;
+  color: #f3f5f6;
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.home {
+  min-height: 100svh;
+  display: flex;
+  align-items: center;
+  padding: clamp(24px, 6vw, 96px);
+
+  background:
+    radial-gradient(
+      circle at 72% 45%,
+      rgba(91, 188, 215, 0.07),
+      transparent 32%
+    ),
+    #040506;
+}
+
+.intro {
+  width: 100%;
+}
+
+.eyebrow {
+  margin: 0 0 32px;
+  color: #8f999f;
+  font-size: 11px;
+  letter-spacing: 0.28em;
+}
+
+h1 {
+  margin: 0;
+  font-size: clamp(54px, 10vw, 155px);
+  line-height: 0.87;
+  letter-spacing: -0.065em;
+  font-weight: 500;
+}
+
+.subtitle {
+  margin-top: 40px;
+  color: #989fa4;
+  font-size: clamp(14px, 1.4vw, 20px);
+}
+
+.status {
+  margin-top: 80px;
+  color: #8cd6e7;
+  font-family: monospace;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+}
