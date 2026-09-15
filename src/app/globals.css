@@ -2,9 +2,9 @@
 
 :root {
   --background: #020304;
-  --foreground: #f2f4f5;
-  --muted: #929b9f;
-  --accent: #98ddeb;
+  --foreground: #f2f5f6;
+  --muted: #8d989d;
+  --accent: #9ce8f6;
 }
 
 * {
@@ -13,528 +13,399 @@
 
 html {
   margin: 0;
-  padding: 0;
-
-  width: 100%;
-
   background: var(--background);
-
+  color-scheme: dark;
   overflow-x: hidden;
-  overflow-y: auto;
 }
 
 body {
   margin: 0;
-  padding: 0;
-
-  width: 100%;
+  min-width: 320px;
   min-height: 100vh;
-
   background: var(--background);
-
   color: var(--foreground);
-
-  font-family:
-    Arial,
-    Helvetica,
-    sans-serif;
-
+  font-family: Arial, Helvetica, sans-serif;
   overflow-x: hidden;
 }
 
-main {
-  width: 100%;
+button,
+a {
+  color: inherit;
 }
 
 a {
-  color: inherit;
   text-decoration: none;
 }
 
-/* ========================================
-   CINEMATIC DOCUMENT
-   ======================================== */
-
 .cinematic-scroll {
+  --hero-opacity: 1;
+  --reveal-copy-opacity: 0;
+  --assembly-opacity: 0;
+  --complete-opacity: 0;
+  --scene-shade: 0.92;
   position: relative;
-
   width: 100%;
 }
 
-/*
- * This element alone creates the real
- * browser scroll distance.
- */
 .cinematic-spacer {
-  width: 100%;
-
-  height: 600vh;
-
+  height: 520vh;
   pointer-events: none;
 }
-
-/* ========================================
-   FIXED CINEMATIC SCREEN
-   ======================================== */
 
 .cinematic-viewport {
-  position: fixed;
-
-  inset: 0;
-
+  position: sticky;
+  top: 0;
   width: 100%;
   height: 100vh;
-
-  overflow: hidden;
-
+  height: 100svh;
   background: #020304;
-
-  z-index: 1;
+  overflow: hidden;
+  isolation: isolate;
 }
-
-/* ========================================
-   CANVAS
-   ======================================== */
 
 .cinematic-canvas {
-  position: absolute;
-
+  position: absolute !important;
   inset: 0;
-
-  width: 100%;
-  height: 100%;
-
-  display: block;
-
   z-index: 0;
+  width: 100% !important;
+  height: 100% !important;
 }
 
-/* ========================================
-   DARK CINEMATIC OVERLAY
-   ======================================== */
+.cinematic-canvas canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.cinematic-shade,
+.cinematic-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
 
 .cinematic-shade {
-  position: absolute;
-
-  inset: 0;
-
-  z-index: 1;
-
-  pointer-events: none;
-
+  z-index: 2;
   background:
     linear-gradient(
       90deg,
-      rgba(
-        2,
-        3,
-        4,
-        0.78
-      )
-        0%,
-      rgba(
-        2,
-        3,
-        4,
-        0.32
-      )
-        48%,
-      rgba(
-        2,
-        3,
-        4,
-        0.06
-      )
-        78%
+      rgba(2, 3, 4, 0.98) 0%,
+      rgba(2, 3, 4, 0.9) 28%,
+      rgba(2, 3, 4, 0.34) 54%,
+      rgba(2, 3, 4, 0.04) 78%
     );
+  opacity: var(--scene-shade);
 }
 
-/* ========================================
-   HEADER
-   ======================================== */
+.cinematic-vignette {
+  z-index: 3;
+  background:
+    radial-gradient(
+      circle at 68% 48%,
+      transparent 0%,
+      rgba(2, 3, 4, 0.08) 40%,
+      rgba(2, 3, 4, 0.74) 100%
+    ),
+    linear-gradient(180deg, rgba(2, 3, 4, 0.45), transparent 24% 75%, #020304);
+}
 
 .cinematic-header {
   position: absolute;
-
+  z-index: 10;
   top: 0;
   left: 0;
-
-  width: 100%;
-
-  z-index: 10;
-
   display: flex;
-
   align-items: center;
-  justify-content:
-    space-between;
-
-  padding:
-    clamp(
-      22px,
-      3vw,
-      48px
-    )
-    clamp(
-      22px,
-      5vw,
-      84px
-    );
-
+  justify-content: space-between;
+  width: 100%;
+  padding: clamp(22px, 3vw, 44px) clamp(22px, 5vw, 78px);
   pointer-events: none;
 }
 
 .brand {
   font-size: 20px;
-
-  font-weight: 600;
-
-  letter-spacing: -0.07em;
+  font-weight: 700;
+  letter-spacing: -0.08em;
+  pointer-events: auto;
 }
 
-.brand span {
+.brand span,
+.cinematic-progress strong {
   color: var(--accent);
 }
 
 .cinematic-header p {
   margin: 0;
-
-  color:
-    rgba(
-      255,
-      255,
-      255,
-      0.38
-    );
-
-  font-family:
-    monospace;
-
+  color: rgba(239, 246, 248, 0.38);
+  font-family: "Courier New", monospace;
   font-size: 9px;
-
   letter-spacing: 0.2em;
 }
-
-/* ========================================
-   PROGRESS INDICATOR
-   ======================================== */
-
-.cinematic-progress {
-  position: absolute;
-
-  right:
-    clamp(
-      22px,
-      5vw,
-      84px
-    );
-
-  bottom:
-    clamp(
-      24px,
-      4vw,
-      56px
-    );
-
-  z-index: 10;
-
-  color:
-    rgba(
-      255,
-      255,
-      255,
-      0.38
-    );
-
-  font-family:
-    monospace;
-
-  font-size: 9px;
-
-  letter-spacing: 0.16em;
-}
-
-.cinematic-progress span {
-  color: var(--accent);
-}
-
-/* ========================================
-   OVERLAYS
-   ======================================== */
 
 .cinematic-overlays {
   position: absolute;
-
-  inset: 0;
-
   z-index: 5;
-
+  inset: 0;
   pointer-events: none;
 }
 
-.cinematic-scene {
+.cinematic-copy-scene {
   position: absolute;
-
-  inset: 0;
-
-  display: flex;
-
-  align-items: center;
-
-  padding:
-    clamp(
-      90px,
-      10vw,
-      160px
-    )
-    clamp(
-      22px,
-      7vw,
-      112px
-    );
-
-  opacity: 0;
-
-  transform:
-    translateY(26px);
-
-  transition:
-    opacity 500ms ease,
-    transform 700ms
-      cubic-bezier(
-        0.16,
-        1,
-        0.3,
-        1
-      );
+  left: clamp(22px, 7vw, 112px);
+  top: 50%;
+  width: min(48vw, 830px);
+  transform: translateY(-50%);
+  will-change: opacity, transform;
 }
 
-.cinematic-scene.is-active {
-  opacity: 1;
-
-  transform:
-    translateY(0);
+.hero-copy {
+  opacity: var(--hero-opacity);
+  transform: translateY(calc(-50% + (1 - var(--hero-opacity)) * -32px));
 }
 
-.cinematic-scene > div {
-  width:
-    min(
-      900px,
-      100%
-    );
+.reveal-copy {
+  opacity: var(--reveal-copy-opacity);
+  transform: translateY(calc(-50% + (1 - var(--reveal-copy-opacity)) * 24px));
+}
+
+.assembly-copy {
+  top: auto;
+  bottom: clamp(86px, 11vh, 138px);
+  opacity: var(--assembly-opacity);
+  transform: translateY(calc((1 - var(--assembly-opacity)) * 24px));
+}
+
+.complete-copy {
+  top: auto;
+  bottom: clamp(86px, 11vh, 138px);
+  opacity: var(--complete-opacity);
+  transform: translateY(calc((1 - var(--complete-opacity)) * 24px));
 }
 
 .cinematic-label {
-  margin:
-    0
-    0
-    28px;
-
+  margin: 0 0 24px;
   color: var(--accent);
-
-  font-family:
-    monospace;
-
+  font-family: "Courier New", monospace;
   font-size: 10px;
-
-  letter-spacing: 0.2em;
+  letter-spacing: 0.22em;
 }
 
-/* ========================================
-   TYPOGRAPHY
-   ======================================== */
-
-.cinematic-scene h1,
-.cinematic-scene h2 {
+.cinematic-copy-scene h1,
+.cinematic-copy-scene h2 {
   margin: 0;
-
+  max-width: 100%;
   font-weight: 500;
-
-  line-height: 0.88;
-
-  letter-spacing: -0.065em;
-
+  line-height: 0.84;
+  letter-spacing: -0.072em;
   text-wrap: balance;
 }
 
-.cinematic-scene h1 {
-  font-size:
-    clamp(
-      54px,
-      10vw,
-      158px
-    );
+.cinematic-copy-scene h1 {
+  font-size: clamp(58px, 9.2vw, 150px);
 }
 
-.cinematic-scene h2 {
-  font-size:
-    clamp(
-      48px,
-      8vw,
-      124px
-    );
+.cinematic-copy-scene h2 {
+  font-size: clamp(48px, 7vw, 108px);
 }
 
 .cinematic-copy {
-  max-width: 500px;
-
-  margin:
-    34px
-    0
-    0;
-
+  max-width: 440px;
+  margin: 32px 0 0;
   color: var(--muted);
-
-  font-size:
-    clamp(
-      13px,
-      1.2vw,
-      17px
-    );
-
-  line-height: 1.75;
+  font-size: clamp(13px, 1.1vw, 16px);
+  line-height: 1.7;
 }
-
-/* ========================================
-   SCROLL COMMAND
-   ======================================== */
 
 .scroll-command {
   display: flex;
-
   align-items: center;
-
   gap: 14px;
-
-  margin-top: 48px;
-
-  color:
-    rgba(
-      255,
-      255,
-      255,
-      0.6
-    );
-
-  font-family:
-    monospace;
-
+  margin-top: 46px;
+  color: rgba(239, 246, 248, 0.58);
+  font-family: "Courier New", monospace;
   font-size: 9px;
-
   letter-spacing: 0.18em;
 }
 
 .scroll-command span {
   display: grid;
-
   place-items: center;
-
   width: 38px;
   height: 38px;
-
-  border:
-    1px solid
-    rgba(
-      152,
-      221,
-      235,
-      0.32
-    );
-
+  border: 1px solid rgba(156, 232, 246, 0.34);
   border-radius: 50%;
-
   color: var(--accent);
+  animation: scroll-pulse 1.8s ease-in-out infinite;
 }
 
-/* ========================================
-   CORE SCENE
-   ======================================== */
-
-.cinematic-scene-core {
-  justify-content:
-    center;
-
-  text-align: center;
+.cinematic-progress {
+  position: absolute;
+  z-index: 10;
+  right: clamp(22px, 5vw, 78px);
+  bottom: clamp(24px, 4vw, 50px);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: rgba(239, 246, 248, 0.4);
+  font-family: "Courier New", monospace;
+  font-size: 9px;
+  letter-spacing: 0.16em;
 }
 
-.cinematic-scene-core
-  > div {
-  width:
-    min(
-      800px,
-      100%
-    );
+.cinematic-progress strong {
+  min-width: 35px;
+  font-weight: 400;
 }
 
-.cinematic-scene-core
-  .cinematic-copy {
-  margin-inline: auto;
+.progress-track {
+  width: 54px;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.14);
+  overflow: hidden;
 }
 
-/* ========================================
-   MOBILE
-   ======================================== */
+.progress-track i {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: var(--accent);
+  transform: scaleX(var(--complete-opacity));
+  transform-origin: left center;
+}
 
-@media (
-  max-width: 700px
-) {
+.canvas-boot,
+.webgl-fallback {
+  position: absolute;
+  z-index: 1;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: rgba(239, 246, 248, 0.44);
+  background: #020304;
+  font-family: "Courier New", monospace;
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.model-loader {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  color: rgba(239, 246, 248, 0.46);
+  font-family: "Courier New", monospace;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  white-space: nowrap;
+}
+
+.model-loader strong {
+  color: var(--accent);
+  font-weight: 400;
+}
+
+@keyframes scroll-pulse {
+  0%,
+  100% {
+    transform: translateY(0);
+    border-color: rgba(156, 232, 246, 0.26);
+  }
+
+  50% {
+    transform: translateY(5px);
+    border-color: rgba(156, 232, 246, 0.58);
+  }
+}
+
+@media (max-width: 760px) {
   .cinematic-spacer {
-    height: 500vh;
+    height: 450vh;
   }
 
   .cinematic-header {
-    padding:
-      22px
-      20px;
+    padding: 22px 20px;
   }
 
   .cinematic-header p {
     display: none;
   }
 
-  .cinematic-progress {
-    right: 20px;
-    bottom: 20px;
+  .cinematic-shade {
+    background: linear-gradient(
+      180deg,
+      rgba(2, 3, 4, 0.96) 0%,
+      rgba(2, 3, 4, 0.35) 40%,
+      rgba(2, 3, 4, 0.08) 70%
+    );
   }
 
-  .cinematic-scene {
-    padding:
-      90px
-      20px;
+  .cinematic-vignette {
+    background: radial-gradient(
+      circle at 50% 60%,
+      transparent 0%,
+      rgba(2, 3, 4, 0.12) 44%,
+      rgba(2, 3, 4, 0.82) 100%
+    );
   }
 
-  .cinematic-scene h1 {
-    font-size:
-      clamp(
-        46px,
-        15vw,
-        76px
-      );
+  .cinematic-copy-scene {
+    top: 17%;
+    left: 20px;
+    width: calc(100% - 40px);
+    transform: none;
   }
 
-  .cinematic-scene h2 {
-    font-size:
-      clamp(
-        42px,
-        13vw,
-        68px
-      );
+  .hero-copy {
+    transform: translateY(calc((1 - var(--hero-opacity)) * -24px));
+  }
+
+  .reveal-copy {
+    transform: translateY(calc((1 - var(--reveal-copy-opacity)) * 18px));
+  }
+
+  .assembly-copy,
+  .complete-copy {
+    top: auto;
+    bottom: 78px;
+  }
+
+  .cinematic-copy-scene h1 {
+    font-size: clamp(48px, 15vw, 76px);
+  }
+
+  .cinematic-copy-scene h2 {
+    font-size: clamp(42px, 12vw, 66px);
   }
 
   .cinematic-copy {
-    max-width: 320px;
+    max-width: 310px;
+    margin-top: 22px;
+  }
+
+  .scroll-command {
+    margin-top: 28px;
+  }
+
+  .cinematic-progress {
+    right: 20px;
+    bottom: 22px;
   }
 }
 
-/* ========================================
-   REDUCED MOTION
-   ======================================== */
+@media (prefers-reduced-motion: reduce) {
+  .cinematic-spacer {
+    height: 0;
+  }
 
-@media (
-  prefers-reduced-motion:
-    reduce
-) {
-  .cinematic-scene {
-    transition: none;
+  .cinematic-scroll {
+    min-height: 100svh;
+  }
+
+  .scroll-command {
+    display: none;
+  }
+
+  .scroll-command span {
+    animation: none;
   }
 }
