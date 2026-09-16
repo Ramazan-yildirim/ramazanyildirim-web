@@ -297,6 +297,13 @@ a {
   font-size: 9px;
   letter-spacing: 0.18em;
   white-space: nowrap;
+  transition: opacity 0.45s ease, transform 0.45s ease;
+}
+
+.model-loader-exit {
+  opacity: 0;
+  transform: scale(0.96);
+  pointer-events: none;
 }
 
 .model-loader strong {

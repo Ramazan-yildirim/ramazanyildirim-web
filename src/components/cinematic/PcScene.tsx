@@ -1,7 +1,10 @@
 "use client";
 
+/* eslint-disable react-hooks/immutability */
+
 import { useGLTF } from "@react-three/drei";
 import { useThree } from "@react-three/fiber";
+import gsap from "gsap";
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import {
   AmbientLight,
@@ -62,6 +65,7 @@ const CPU_CLOUD_VERTEX_SHADER = /* glsl */ `
 const CPU_CLOUD_FRAGMENT_SHADER = /* glsl */ `
   varying vec2 vUv;
   uniform float uProgress;
+  uniform float uIntro;
 
   float random(vec2 point) {
     return fract(sin(dot(point, vec2(127.1, 311.7))) * 43758.5453);
@@ -97,7 +101,7 @@ const CPU_CLOUD_FRAGMENT_SHADER = /* glsl */ `
     float outerEdge = 1.0 - smoothstep(0.82, 1.34, distanceFromCpu);
     float wisps = smoothstep(0.34, 0.75, turbulence + distanceFromCpu * 0.12);
     float dissolve = 1.0 - smoothstep(0.0, 1.0, uProgress);
-    float alpha = innerEdge * outerEdge * wisps * dissolve * 0.92;
+    float alpha = innerEdge * outerEdge * wisps * dissolve * 0.92 * uIntro;
     vec3 smokeColor = mix(vec3(0.004, 0.006, 0.008), vec3(0.045, 0.058, 0.064), turbulence);
 
     if (alpha < 0.012) discard;
@@ -238,7 +242,10 @@ function createCpuCloudMaterial() {
     fragmentShader: CPU_CLOUD_FRAGMENT_SHADER,
     side: DoubleSide,
     transparent: true,
-    uniforms: { uProgress: { value: 0 } },
+    uniforms: {
+      uIntro: { value: 0 },
+      uProgress: { value: 0 },
+    },
     vertexShader: CPU_CLOUD_VERTEX_SHADER,
   });
 }
@@ -411,11 +418,15 @@ export function PcScene({
     [],
   );
   const rigRef = useRef<Group>(null);
+  const cpuGroupRef = useRef<Group>(null);
   const ambientLightRef = useRef<AmbientLight>(null);
   const cpuLightRef = useRef<PointLight>(null);
   const directionalLightRef = useRef<DirectionalLight>(null);
   const fillLightRef = useRef<PointLight>(null);
   const fogRef = useRef<Fog>(null);
+  const introRef = useRef(0);
+  const lastProgressRef = useRef(0);
+  const updateSceneRef = useRef<(progress: number) => void>(() => {});
   const { camera, invalidate, size } = useThree();
 
   const setup = useMemo(() => {
@@ -507,6 +518,27 @@ export function PcScene({
     const cpuCenter = getCenter(cpu);
     const cpuBounds = new Box3().setFromObject(cpu);
     const cpuSize = cpuBounds.getSize(new Vector3());
+    const localCpuCenter = new Vector3(
+      cpuCenter.x - wholeCenter.x,
+      cpuCenter.y - wholeCenter.y,
+      cpuCenter.z - wholeCenter.z,
+    );
+    const cpuMeshLocalPosition = new Vector3(
+      -cpuCenter.x,
+      -cpuCenter.y,
+      -cpuCenter.z,
+    );
+    const cpuFaceLocalPosition = new Vector3(
+      0,
+      0,
+      cpuBounds.max.z - cpuCenter.z + 0.00012,
+    );
+    const cpuCloudLocalPosition = new Vector3(
+      0,
+      0,
+      cpuBounds.max.z - cpuCenter.z + 0.001,
+    );
+
     if (!motherboard.userData.rightCpuCapacitorRowHidden) {
       const hiddenCapacitorRowBounds = new Box3(
         new Vector3(-0.0349, 0.0436, Number.NEGATIVE_INFINITY),
@@ -598,6 +630,8 @@ export function PcScene({
         : [object.material];
       const displayMaterials = materials.map((material) => {
         if (!(material instanceof MeshStandardMaterial)) {
+          material.transparent = true;
+          material.opacity = 1;
           cpuMaterials.add(material);
           return material;
         }
@@ -607,6 +641,8 @@ export function PcScene({
           map: material.map,
           side: DoubleSide,
           toneMapped: true,
+          transparent: true,
+          opacity: 1,
         });
         displayMaterial.name = `${material.name}-cpu-display`;
         cpuMaterials.add(displayMaterial);
@@ -617,6 +653,8 @@ export function PcScene({
         ? displayMaterials
         : displayMaterials[0];
     });
+
+    const cpuFadeMaterials = collectFadeMaterials([cpu]);
 
     model.traverse((object) => {
       if (!(object instanceof Mesh)) return;
@@ -650,22 +688,27 @@ export function PcScene({
       coolingScreenFadeMaterials,
       cpu,
       cpuCenter,
+      cpuCloudLocalPosition,
       cpuCloudPosition: new Vector3(
         cpuCenter.x - wholeCenter.x,
         cpuCenter.y - wholeCenter.y,
         cpuBounds.max.z - wholeCenter.z + 0.001,
       ),
       cpuCloudSize,
+      cpuFaceLocalPosition,
       cpuFacePosition: new Vector3(
         cpuCenter.x - wholeCenter.x,
         cpuCenter.y - wholeCenter.y,
         cpuBounds.max.z - wholeCenter.z + 0.00012,
       ),
       cpuFaceSize: [cpuSize.x, cpuSize.y] as const,
+      cpuFadeMaterials,
+      cpuMeshLocalPosition,
       earlyCaseFadeMaterials,
       earlyCaseParts,
       emissiveMaterials,
       hoseEndFadeMaterials,
+      localCpuCenter,
       motherboard,
       motherboardBackdropFadeMaterials,
       motherboardFadeMaterials,
@@ -683,6 +726,33 @@ export function PcScene({
     },
     [coolingScreenMaterial, cpuCloudMaterial, cpuFaceMaterial],
   );
+
+  useEffect(() => {
+    const prefersReducedMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)",
+    ).matches;
+
+    if (prefersReducedMotion) {
+      introRef.current = 1;
+      updateSceneRef.current(lastProgressRef.current);
+      return;
+    }
+
+    const introObj = { value: 0 };
+    const tween = gsap.to(introObj, {
+      duration: 2.2,
+      ease: "power2.out",
+      value: 1,
+      onUpdate: () => {
+        introRef.current = introObj.value;
+        updateSceneRef.current(lastProgressRef.current);
+      },
+    });
+
+    return () => {
+      tween.kill();
+    };
+  }, []);
 
   useLayoutEffect(() => {
     const mobile = size.width < 760;
@@ -740,6 +810,12 @@ export function PcScene({
     );
 
     const applyProgress = (progress: number) => {
+      lastProgressRef.current = progress;
+      const effectiveIntro = Math.max(
+        introRef.current,
+        Math.min(1, progress * 10),
+      );
+
       const approach = range(progress, 0, 0.14);
       const motherboardReveal = range(progress, 0.14, 0.29);
       const caseReveal = range(progress, 0.43, 0.82);
@@ -770,8 +846,13 @@ export function PcScene({
         part.visible = coolingOpacity > 0.001;
       });
       setup.cpu.traverse((part) => {
-        part.visible = true;
+        part.visible = effectiveIntro > 0.001;
       });
+
+      applyMaterialFade(setup.cpuFadeMaterials, effectiveIntro);
+      cpuFaceMaterial.opacity = effectiveIntro;
+      cpuFaceMaterial.depthWrite = effectiveIntro > 0.98;
+
       applyMaterialFade(setup.motherboardFadeMaterials, motherboardOpacity);
       applyMaterialFade(
         setup.motherboardBackdropFadeMaterials,
@@ -787,7 +868,7 @@ export function PcScene({
       );
       applyMaterialFade(setup.hoseEndFadeMaterials, hoseEndOpacity);
 
-      const cameraPosition =
+      const baseCameraPosition =
         progress < 0.14
           ? mixVector(introPosition, approachPosition, approach)
           : progress < 0.29
@@ -808,6 +889,11 @@ export function PcScene({
             : progress < 0.43
               ? cameraHoldTarget.clone()
               : mixVector(cameraHoldTarget, fullTarget, caseReveal);
+
+      const cameraPosition = baseCameraPosition.clone();
+      if (progress < 0.14) {
+        cameraPosition.z += (1 - effectiveIntro) * (mobile ? 0.4 : 0.3);
+      }
 
       camera.position.copy(cameraPosition);
       camera.lookAt(cameraTarget);
@@ -836,7 +922,18 @@ export function PcScene({
       }
 
       camera.updateMatrixWorld();
+      cpuCloudMaterial.uniforms.uIntro.value = effectiveIntro;
       cpuCloudMaterial.uniforms.uProgress.value = range(progress, 0, 0.18);
+
+      if (cpuGroupRef.current) {
+        const cpuScale = 0.94 + 0.06 * effectiveIntro;
+        cpuGroupRef.current.scale.set(cpuScale, cpuScale, cpuScale);
+        cpuGroupRef.current.position.set(
+          setup.localCpuCenter.x,
+          setup.localCpuCenter.y,
+          setup.localCpuCenter.z - 0.012 * (1 - effectiveIntro),
+        );
+      }
 
       const activeLift = coolerLift.clone().multiplyScalar(1 - seated);
       setup.cooler.position.copy(setup.coolerBasePosition).add(activeLift);
@@ -857,13 +954,16 @@ export function PcScene({
           cpuPosition.y + 0.18,
           cpuPosition.z + 0.42,
         );
-        cpuLightRef.current.intensity = 2.2 - sceneReveal * 0.7;
+        cpuLightRef.current.intensity =
+          (2.2 - sceneReveal * 0.7) * Math.pow(effectiveIntro, 1.4);
       }
       if (fillLightRef.current) {
-        fillLightRef.current.intensity = 0.2 + sceneReveal * 7.5;
+        fillLightRef.current.intensity =
+          (0.2 + sceneReveal * 7.5) * (0.25 + 0.75 * effectiveIntro);
       }
       if (ambientLightRef.current) {
-        ambientLightRef.current.intensity = 0.025 + sceneReveal * 0.7;
+        ambientLightRef.current.intensity =
+          (0.025 + sceneReveal * 0.7) * (0.35 + 0.65 * effectiveIntro);
       }
       if (directionalLightRef.current) {
         directionalLightRef.current.intensity = sceneReveal * 2.1;
@@ -876,10 +976,14 @@ export function PcScene({
       invalidate();
     };
 
+    updateSceneRef.current = applyProgress;
+    applyProgress(progressSource.get());
+
     return progressSource.subscribe(applyProgress);
   }, [
     camera,
     cpuCloudMaterial,
+    cpuFaceMaterial,
     invalidate,
     progressSource,
     setup,
@@ -914,24 +1018,27 @@ export function PcScene({
       />
       <group ref={rigRef} scale={MODEL_SCALE}>
         <primitive object={model} />
-        <group position={model.position}>
-          <primitive object={setup.cpu} />
+        <group ref={cpuGroupRef} position={setup.localCpuCenter}>
+          <group position={setup.cpuMeshLocalPosition}>
+            <primitive object={setup.cpu} />
+          </group>
+          <mesh
+            position={setup.cpuFaceLocalPosition}
+            renderOrder={4}
+            scale={[cpuFaceWidthScale, cpuFaceHeightScale, 1]}
+          >
+            <planeGeometry args={setup.cpuFaceSize} />
+            <primitive object={cpuFaceMaterial} attach="material" />
+          </mesh>
+          <mesh position={setup.cpuCloudLocalPosition} renderOrder={5}>
+            <planeGeometry args={[setup.cpuCloudSize, setup.cpuCloudSize]} />
+            <primitive object={cpuCloudMaterial} attach="material" />
+          </mesh>
         </group>
-        <mesh
-          position={setup.cpuFacePosition}
-          renderOrder={4}
-          scale={[cpuFaceWidthScale, cpuFaceHeightScale, 1]}
-        >
-          <planeGeometry args={setup.cpuFaceSize} />
-          <primitive object={cpuFaceMaterial} attach="material" />
-        </mesh>
-        <mesh position={setup.cpuCloudPosition} renderOrder={5}>
-          <planeGeometry args={[setup.cpuCloudSize, setup.cpuCloudSize]} />
-          <primitive object={cpuCloudMaterial} attach="material" />
-        </mesh>
       </group>
     </>
   );
 }
 
 useGLTF.preload(MODEL_URL);
+
