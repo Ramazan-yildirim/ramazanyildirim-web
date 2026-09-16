@@ -35,7 +35,7 @@ export function PcCanvas({ progressSource }: PcCanvasProps) {
         position: [0, 0, 8],
       }}
       dpr={[1, 1.5]}
-      frameloop="demand"
+      frameloop="always"
       gl={{
         alpha: false,
         antialias: false,
