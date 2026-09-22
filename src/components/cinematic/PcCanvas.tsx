@@ -6,8 +6,20 @@ import { Suspense, useEffect, useState } from "react";
 import { ACESFilmicToneMapping, SRGBColorSpace } from "three";
 import { PcScene } from "./PcScene";
 import type { ProgressSource } from "./scroll-progress";
+import type {
+  SceneHover,
+  SceneInteraction,
+  ScreenAnchor,
+} from "./scene-interaction";
 
 type PcCanvasProps = {
+  hoveredTarget: SceneHover | null;
+  interaction: SceneInteraction;
+  interactionReady: boolean;
+  onCoolerClick: () => void;
+  onGpuClick: () => void;
+  onHoverChange: (target: SceneHover | null) => void;
+  onRamClick: (ramIndex: number, anchor: ScreenAnchor) => void;
   progressSource: ProgressSource;
 };
 
@@ -30,14 +42,26 @@ function SceneLoader() {
   if (hidden) return null;
 
   return (
-    <Html center className={`model-loader ${fading ? "model-loader-exit" : ""}`}>
+    <Html
+      center
+      className={`model-loader ${fading ? "model-loader-exit" : ""}`}
+    >
       <span>3D SYSTEM</span>
       <strong>{Math.round(progress).toString().padStart(3, "0")}%</strong>
     </Html>
   );
 }
 
-export function PcCanvas({ progressSource }: PcCanvasProps) {
+export function PcCanvas({
+  hoveredTarget,
+  interaction,
+  interactionReady,
+  onCoolerClick,
+  onGpuClick,
+  onHoverChange,
+  onRamClick,
+  progressSource,
+}: PcCanvasProps) {
   return (
     <Canvas
       className="cinematic-canvas"
@@ -67,7 +91,16 @@ export function PcCanvas({ progressSource }: PcCanvasProps) {
       }
     >
       <Suspense fallback={<SceneLoader />}>
-        <PcScene progressSource={progressSource} />
+        <PcScene
+          hoveredTarget={hoveredTarget}
+          interaction={interaction}
+          interactionReady={interactionReady}
+          onCoolerClick={onCoolerClick}
+          onGpuClick={onGpuClick}
+          onHoverChange={onHoverChange}
+          onRamClick={onRamClick}
+          progressSource={progressSource}
+        />
       </Suspense>
     </Canvas>
   );

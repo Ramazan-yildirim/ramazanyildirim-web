@@ -4,8 +4,14 @@ import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import dynamic from "next/dynamic";
-import { useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { HardwareInteractionOverlay } from "./HardwareInteractionOverlay";
 import { createProgressSource, range } from "./scroll-progress";
+import type {
+  SceneHover,
+  SceneInteraction,
+  ScreenAnchor,
+} from "./scene-interaction";
 
 const PcCanvas = dynamic(
   () => import("./PcCanvas").then((module) => module.PcCanvas),
@@ -31,6 +37,39 @@ function getPhase(progress: number) {
 export function CinematicExperience() {
   const rootRef = useRef<HTMLElement>(null);
   const progressSource = useMemo(() => createProgressSource(), []);
+  const [interaction, setInteraction] = useState<SceneInteraction>(null);
+  const [hoveredTarget, setHoveredTarget] = useState<SceneHover | null>(null);
+  const [interactionReady, setInteractionReady] = useState(false);
+  const interactionReadyRef = useRef(false);
+  const closeInteraction = useCallback(() => setInteraction(null), []);
+  const handleHoverChange = useCallback(
+    (target: SceneHover | null) => setHoveredTarget(target),
+    [],
+  );
+  const handleRamClick = useCallback(
+    (ramIndex: number, anchor: ScreenAnchor) => {
+      setHoveredTarget(null);
+      setInteraction({ anchor, kind: "ram", ramIndex });
+    },
+    [],
+  );
+  const handleCoolerClick = useCallback(() => {
+    setHoveredTarget(null);
+    setInteraction({ kind: "cooler" });
+  }, []);
+  const handleGpuClick = useCallback(() => {
+    setHoveredTarget(null);
+    setInteraction({ kind: "gpu" });
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeInteraction();
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [closeInteraction]);
 
   useGSAP(
     () => {
@@ -44,6 +83,8 @@ export function CinematicExperience() {
 
       if (prefersReducedMotion) {
         progressSource.set(1);
+        interactionReadyRef.current = true;
+        setInteractionReady(true);
         root.dataset.phase = "complete";
         root.style.setProperty("--hero-opacity", "1");
         root.style.setProperty("--scene-shade", "0.18");
@@ -60,6 +101,16 @@ export function CinematicExperience() {
           range(progress, 0.43, 0.53) * (1 - range(progress, 0.82, 0.92));
         const completeOpacity = range(progress, 0.9, 0.98);
         const sceneShade = 0.92 - range(progress, 0.1, 0.32) * 0.72;
+        const nextInteractionReady = progress >= 0.995;
+
+        if (nextInteractionReady !== interactionReadyRef.current) {
+          interactionReadyRef.current = nextInteractionReady;
+          setInteractionReady(nextInteractionReady);
+          if (!nextInteractionReady) {
+            setHoveredTarget(null);
+            setInteraction(null);
+          }
+        }
 
         progressSource.set(progress);
         root.dataset.phase = getPhase(progress);
@@ -107,10 +158,20 @@ export function CinematicExperience() {
     <section
       ref={rootRef}
       className="cinematic-scroll"
+      data-interaction={interaction?.kind ?? "none"}
       data-phase="focus"
     >
       <div className="cinematic-viewport" style={{ position: "fixed" }}>
-        <PcCanvas progressSource={progressSource} />
+        <PcCanvas
+          hoveredTarget={hoveredTarget}
+          interaction={interaction}
+          interactionReady={interactionReady}
+          onCoolerClick={handleCoolerClick}
+          onGpuClick={handleGpuClick}
+          onHoverChange={handleHoverChange}
+          onRamClick={handleRamClick}
+          progressSource={progressSource}
+        />
 
         <div className="cinematic-shade" aria-hidden="true" />
         <div className="cinematic-vignette" aria-hidden="true" />
@@ -146,8 +207,23 @@ export function CinematicExperience() {
               <br />
               THINK
             </h2>
+            <div
+              aria-hidden={!interactionReady}
+              className="component-selector"
+              data-ready={interactionReady ? "true" : "false"}
+            >
+              <span>SELECT A COMPONENT</span>
+              <strong>RAM · COOLING · GPU</strong>
+            </div>
           </section>
         </div>
+
+        <HardwareInteractionOverlay
+          hoveredTarget={hoveredTarget}
+          interaction={interaction}
+          interactionReady={interactionReady}
+          onClose={closeInteraction}
+        />
       </div>
 
       <div className="cinematic-spacer" aria-hidden="true" />

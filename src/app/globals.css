@@ -26,7 +26,13 @@ body {
   min-height: 100vh;
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-heading), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family:
+    var(--font-heading),
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -90,14 +96,13 @@ a {
 
 .cinematic-shade {
   z-index: 2;
-  background:
-    linear-gradient(
-      90deg,
-      rgba(2, 3, 4, 0.98) 0%,
-      rgba(2, 3, 4, 0.9) 28%,
-      rgba(2, 3, 4, 0.34) 54%,
-      rgba(2, 3, 4, 0.04) 78%
-    );
+  background: linear-gradient(
+    90deg,
+    rgba(2, 3, 4, 0.98) 0%,
+    rgba(2, 3, 4, 0.9) 28%,
+    rgba(2, 3, 4, 0.34) 54%,
+    rgba(2, 3, 4, 0.04) 78%
+  );
   opacity: var(--scene-shade);
 }
 
@@ -203,12 +208,7 @@ a {
   letter-spacing: -0.035em;
   text-transform: uppercase;
   text-wrap: balance;
-  background: linear-gradient(
-    180deg,
-    #ffffff 0%,
-    #f0f7f9 40%,
-    #98abb4 100%
-  );
+  background: linear-gradient(180deg, #ffffff 0%, #f0f7f9 40%, #98abb4 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   filter: drop-shadow(0 4px 30px rgba(156, 232, 246, 0.12));
@@ -315,7 +315,9 @@ a {
   font-size: 9px;
   letter-spacing: 0.18em;
   white-space: nowrap;
-  transition: opacity 0.45s ease, transform 0.45s ease;
+  transition:
+    opacity 0.45s ease,
+    transform 0.45s ease;
 }
 
 .model-loader-exit {
@@ -327,6 +329,623 @@ a {
 .model-loader strong {
   color: var(--accent);
   font-weight: 400;
+}
+
+.hardware-interaction-layer {
+  position: absolute;
+  z-index: 12;
+  inset: 0;
+  pointer-events: none;
+}
+
+.component-selector {
+  display: grid;
+  gap: 7px;
+  width: max-content;
+  margin-top: 24px;
+  color: rgba(239, 246, 248, 0.42);
+  font-family: "Courier New", monospace;
+  opacity: 0;
+  transform: translateY(8px);
+  transition:
+    opacity 0.6s ease 0.16s,
+    transform 0.6s ease 0.16s;
+}
+
+.component-selector[data-ready="true"] {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.component-selector span {
+  color: rgba(156, 232, 246, 0.72);
+  font-size: 9px;
+  font-weight: 400;
+  letter-spacing: 0.22em;
+}
+
+.component-selector strong {
+  font-size: 8px;
+  font-weight: 400;
+  letter-spacing: 0.18em;
+}
+
+.component-hover-hud {
+  position: absolute;
+  top: clamp(70px, calc(var(--anchor-y) - 28px), calc(100% - 92px));
+  left: clamp(18px, calc(var(--anchor-x) + 24px), calc(100% - 178px));
+  display: grid;
+  gap: 4px;
+  min-width: 150px;
+  padding: 9px 12px 8px;
+  border-left: 1px solid rgba(156, 232, 246, 0.5);
+  background: linear-gradient(
+    90deg,
+    rgba(4, 10, 12, 0.72),
+    rgba(4, 10, 12, 0.08)
+  );
+  font-family: "Courier New", monospace;
+  opacity: 0;
+  transform: translateX(-7px);
+  animation: component-hud-in 0.32s ease forwards;
+  backdrop-filter: blur(6px);
+}
+
+.component-hover-hud::before {
+  position: absolute;
+  top: 50%;
+  right: 100%;
+  width: 24px;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    rgba(156, 232, 246, 0),
+    rgba(156, 232, 246, 0.42)
+  );
+  content: "";
+}
+
+.component-hover-hud span {
+  color: rgba(239, 246, 248, 0.62);
+  font-size: 8px;
+  letter-spacing: 0.14em;
+}
+
+.component-hover-hud strong {
+  color: var(--accent);
+  font-size: 7px;
+  font-weight: 400;
+  letter-spacing: 0.2em;
+}
+
+.ram-module-panel {
+  position: absolute;
+  top: clamp(130px, var(--anchor-y), calc(100% - 180px));
+  left: clamp(24px, calc(var(--anchor-x) + 34px), calc(100% - 370px));
+  width: min(336px, calc(100vw - 48px));
+  padding: 25px 26px 24px;
+  border: 1px solid rgba(156, 232, 246, 0.24);
+  border-left-color: rgba(156, 232, 246, 0.72);
+  background:
+    linear-gradient(110deg, rgba(15, 26, 30, 0.97), rgba(3, 7, 9, 0.94)),
+    #030708;
+  box-shadow:
+    24px 28px 70px rgba(0, 0, 0, 0.48),
+    inset 20px 0 44px rgba(67, 183, 202, 0.04);
+  pointer-events: auto;
+  transform: translateY(-50%);
+  transform-origin: left center;
+  animation: ram-module-open 0.72s cubic-bezier(0.22, 1, 0.36, 1) 0.58s both;
+  backdrop-filter: blur(14px);
+}
+
+.ram-module-panel::after {
+  position: absolute;
+  top: -1px;
+  left: -1px;
+  width: 22px;
+  height: 22px;
+  border-top: 1px solid var(--accent);
+  border-left: 1px solid var(--accent);
+  content: "";
+  opacity: 0.62;
+}
+
+.ram-panel-connector {
+  position: absolute;
+  top: 50%;
+  right: 100%;
+  width: 35px;
+  height: 1px;
+  background: rgba(156, 232, 246, 0.62);
+  box-shadow: 0 0 12px rgba(156, 232, 246, 0.13);
+}
+
+.ram-panel-connector::before {
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+  content: "";
+  opacity: 0.76;
+}
+
+.ram-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.ram-panel-header p {
+  margin: 0;
+  color: var(--accent);
+  font-family: "Courier New", monospace;
+  font-size: 8px;
+  letter-spacing: 0.2em;
+}
+
+.interaction-close {
+  display: grid;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid rgba(156, 232, 246, 0.18);
+  background: rgba(255, 255, 255, 0.02);
+  color: rgba(239, 246, 248, 0.62);
+  font: 300 20px/1 sans-serif;
+  pointer-events: auto;
+  cursor: pointer;
+  transition:
+    color 0.25s ease,
+    border-color 0.25s ease,
+    background 0.25s ease;
+}
+
+.interaction-close:hover,
+.interaction-close:focus-visible {
+  border-color: rgba(156, 232, 246, 0.62);
+  background: rgba(156, 232, 246, 0.07);
+  color: var(--accent);
+  outline: none;
+}
+
+.ram-module-panel h2 {
+  margin: 20px 0 18px;
+  color: rgba(239, 246, 248, 0.92);
+  font-size: clamp(25px, 2.5vw, 36px);
+  font-weight: 500;
+  letter-spacing: -0.035em;
+  line-height: 0.98;
+}
+
+.ram-panel-data {
+  display: flex;
+  gap: 16px;
+  padding: 10px 0;
+  border-top: 1px solid rgba(156, 232, 246, 0.12);
+  border-bottom: 1px solid rgba(156, 232, 246, 0.08);
+  color: rgba(239, 246, 248, 0.38);
+  font-family: "Courier New", monospace;
+  font-size: 7px;
+  letter-spacing: 0.13em;
+}
+
+.ram-panel-copy {
+  margin: 18px 0 0;
+  color: rgba(239, 246, 248, 0.54);
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.cooling-system-view {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  pointer-events: auto;
+  isolation: isolate;
+}
+
+.cooling-system-view::before {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background:
+    radial-gradient(
+      circle at 64% 48%,
+      rgba(6, 20, 23, 0.96),
+      rgba(1, 3, 4, 0.995) 42%
+    ),
+    #010304;
+  content: "";
+  opacity: 0;
+  animation: cooling-black-in 1.55s ease-in-out forwards;
+}
+
+.cooling-system-content {
+  width: min(640px, calc(100vw - 48px));
+  padding: clamp(28px, 5vw, 58px);
+  border: 1px solid rgba(156, 232, 246, 0.12);
+  background: rgba(2, 6, 8, 0.52);
+  opacity: 0;
+  transform: translateY(16px);
+  animation: cooling-content-in 0.72s ease 1.12s forwards;
+}
+
+.cooling-system-content > p:first-child {
+  margin: 0 0 12px;
+  color: var(--accent);
+  font-family: "Courier New", monospace;
+  font-size: 8px;
+  letter-spacing: 0.22em;
+}
+
+.cooling-system-content h2 {
+  margin: 0;
+  color: rgba(239, 246, 248, 0.94);
+  font-size: clamp(38px, 6vw, 74px);
+  font-weight: 500;
+  letter-spacing: -0.045em;
+  line-height: 0.94;
+}
+
+.cooling-system-rule {
+  width: 100%;
+  height: 1px;
+  margin: 30px 0 24px;
+  background: linear-gradient(
+    90deg,
+    rgba(156, 232, 246, 0.54),
+    rgba(156, 232, 246, 0.02)
+  );
+  transform-origin: left;
+  animation: hardware-rule-in 0.7s ease 1.42s both;
+}
+
+.cooling-system-content dl {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+  margin: 0;
+}
+
+.cooling-system-content dl div {
+  display: grid;
+  gap: 6px;
+}
+
+.cooling-system-content dt,
+.cooling-system-content dd {
+  margin: 0;
+  font-family: "Courier New", monospace;
+}
+
+.cooling-system-content dt {
+  color: rgba(239, 246, 248, 0.3);
+  font-size: 7px;
+  letter-spacing: 0.17em;
+}
+
+.cooling-system-content dd {
+  color: rgba(239, 246, 248, 0.72);
+  font-size: 9px;
+  letter-spacing: 0.09em;
+}
+
+.cooling-system-copy {
+  max-width: 40em;
+  margin: 28px 0 0;
+  color: rgba(239, 246, 248, 0.48);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.cooling-system-close {
+  position: absolute;
+  z-index: 2;
+  top: clamp(22px, 4vw, 48px);
+  right: clamp(22px, 5vw, 72px);
+  opacity: 0;
+  animation: cooling-content-in 0.5s ease 1.2s forwards;
+}
+
+@keyframes component-hud-in {
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes ram-module-open {
+  from {
+    opacity: 0;
+    transform: translateY(-50%) scaleX(0.04);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(-50%) scaleX(1);
+  }
+}
+
+@keyframes cooling-black-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes cooling-content-in {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.hardware-interaction-hint {
+  position: absolute;
+  top: clamp(82px, 10vh, 120px);
+  left: 50%;
+  display: grid;
+  gap: 6px;
+  min-width: 220px;
+  padding: 11px 16px;
+  border: 1px solid rgba(156, 232, 246, 0.18);
+  background: rgba(3, 7, 9, 0.66);
+  color: rgba(239, 246, 248, 0.58);
+  font-family: "Courier New", monospace;
+  text-align: center;
+  opacity: 0;
+  transform: translate(-50%, -8px);
+  transition:
+    opacity 0.55s ease,
+    transform 0.55s ease;
+  backdrop-filter: blur(10px);
+}
+
+.hardware-interaction-hint span {
+  color: var(--accent);
+  font-size: 8px;
+  letter-spacing: 0.22em;
+}
+
+.hardware-interaction-hint strong {
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.14em;
+}
+
+.hardware-interaction-layer[data-ready="true"] .hardware-interaction-hint {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.cinematic-scroll:not([data-interaction="none"]) .hardware-interaction-hint {
+  opacity: 0;
+  transform: translate(-50%, -8px);
+}
+
+.cinematic-scroll:not([data-interaction="none"]) .complete-copy {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.hardware-panel {
+  position: absolute;
+  top: 50%;
+  right: clamp(24px, 6vw, 96px);
+  width: min(390px, calc(100vw - 48px));
+  padding: 34px;
+  border: 1px solid rgba(156, 232, 246, 0.26);
+  background:
+    linear-gradient(145deg, rgba(13, 23, 27, 0.94), rgba(2, 5, 7, 0.9)),
+    rgba(2, 3, 4, 0.9);
+  box-shadow:
+    0 30px 90px rgba(0, 0, 0, 0.54),
+    inset 0 0 42px rgba(86, 186, 207, 0.04);
+  pointer-events: auto;
+  transform-origin: right center;
+  animation: hardware-panel-in 0.7s cubic-bezier(0.22, 1, 0.36, 1) 0.52s both;
+  backdrop-filter: blur(18px);
+}
+
+.hardware-panel[data-kind="cooler"] {
+  animation-delay: 0.08s;
+}
+
+.hardware-panel::before,
+.hardware-panel::after {
+  position: absolute;
+  width: 22px;
+  height: 22px;
+  border-color: var(--accent);
+  content: "";
+  opacity: 0.58;
+}
+
+.hardware-panel::before {
+  top: -1px;
+  left: -1px;
+  border-top: 1px solid;
+  border-left: 1px solid;
+}
+
+.hardware-panel::after {
+  right: -1px;
+  bottom: -1px;
+  border-right: 1px solid;
+  border-bottom: 1px solid;
+}
+
+.hardware-panel > p:first-of-type {
+  margin: 0 0 10px;
+  color: var(--accent);
+  font-family: "Courier New", monospace;
+  font-size: 9px;
+  letter-spacing: 0.2em;
+}
+
+.hardware-panel h2 {
+  margin: 0;
+  font-size: clamp(30px, 3vw, 46px);
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  line-height: 0.94;
+}
+
+.hardware-panel-close {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  display: grid;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid rgba(156, 232, 246, 0.2);
+  background: rgba(255, 255, 255, 0.025);
+  color: rgba(239, 246, 248, 0.68);
+  font: 300 22px/1 sans-serif;
+  cursor: pointer;
+  transition:
+    color 0.25s ease,
+    border-color 0.25s ease,
+    background 0.25s ease;
+}
+
+.hardware-panel-close:hover,
+.hardware-panel-close:focus-visible {
+  border-color: rgba(156, 232, 246, 0.62);
+  background: rgba(156, 232, 246, 0.08);
+  color: var(--accent);
+  outline: none;
+}
+
+.hardware-panel-rule {
+  width: 100%;
+  height: 1px;
+  margin: 26px 0 22px;
+  background: linear-gradient(
+    90deg,
+    rgba(156, 232, 246, 0.62),
+    rgba(156, 232, 246, 0.04)
+  );
+  transform-origin: left;
+  animation: hardware-rule-in 0.7s ease 0.76s both;
+}
+
+.hardware-panel dl {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin: 0;
+}
+
+.hardware-panel dl div {
+  display: grid;
+  gap: 5px;
+}
+
+.hardware-panel dt,
+.hardware-panel dd {
+  margin: 0;
+  font-family: "Courier New", monospace;
+}
+
+.hardware-panel dt {
+  color: rgba(239, 246, 248, 0.34);
+  font-size: 7px;
+  letter-spacing: 0.16em;
+}
+
+.hardware-panel dd {
+  color: rgba(239, 246, 248, 0.76);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+}
+
+.hardware-panel-copy {
+  max-width: 32em;
+  margin: 26px 0 0;
+  color: rgba(239, 246, 248, 0.54);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.hardware-scene-return {
+  position: absolute;
+  right: clamp(24px, 5vw, 76px);
+  bottom: clamp(28px, 5vh, 56px);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 17px;
+  border: 1px solid rgba(156, 232, 246, 0.28);
+  background: rgba(3, 7, 9, 0.7);
+  color: rgba(239, 246, 248, 0.7);
+  font-family: "Courier New", monospace;
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  pointer-events: auto;
+  cursor: pointer;
+  animation: hardware-return-in 0.5s ease 3.1s both;
+  backdrop-filter: blur(10px);
+}
+
+.hardware-scene-return span {
+  color: var(--accent);
+  font-size: 14px;
+}
+
+.hardware-scene-return:hover,
+.hardware-scene-return:focus-visible {
+  border-color: rgba(156, 232, 246, 0.64);
+  color: var(--accent);
+  outline: none;
+}
+
+@keyframes hardware-panel-in {
+  from {
+    opacity: 0;
+    transform: translate3d(48px, -50%, 0) scaleX(0.86);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate3d(0, -50%, 0) scaleX(1);
+  }
+}
+
+@keyframes hardware-rule-in {
+  from {
+    transform: scaleX(0);
+  }
+
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@keyframes hardware-return-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes scroll-pulse {
@@ -419,6 +1038,70 @@ a {
     right: 20px;
     bottom: 22px;
   }
+
+  .component-selector {
+    margin-top: 18px;
+  }
+
+  .component-hover-hud {
+    min-width: 132px;
+  }
+
+  .ram-module-panel {
+    top: auto;
+    right: 18px;
+    bottom: 74px;
+    left: 18px;
+    width: auto;
+    transform: none;
+    transform-origin: center bottom;
+    animation-name: ram-module-open-mobile;
+  }
+
+  .ram-panel-connector {
+    display: none;
+  }
+
+  .cooling-system-content {
+    width: calc(100vw - 36px);
+    padding: 28px 24px;
+  }
+
+  .cooling-system-content dl {
+    gap: 8px;
+  }
+
+  .hardware-interaction-hint {
+    top: 76px;
+    min-width: 205px;
+  }
+
+  .hardware-panel {
+    top: auto;
+    right: 18px;
+    bottom: 72px;
+    width: calc(100vw - 36px);
+    padding: 28px 24px 24px;
+    transform-origin: center bottom;
+    animation-name: hardware-panel-in-mobile;
+  }
+
+  .hardware-panel h2 {
+    max-width: calc(100% - 42px);
+  }
+
+  .hardware-panel dl {
+    gap: 8px;
+  }
+
+  .hardware-panel-copy {
+    margin-top: 20px;
+  }
+
+  .hardware-scene-return {
+    right: 20px;
+    bottom: 72px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -436,5 +1119,40 @@ a {
 
   .scroll-command span {
     animation: none;
+  }
+
+  .hardware-panel,
+  .hardware-panel-rule,
+  .hardware-scene-return,
+  .ram-module-panel,
+  .cooling-system-view::before,
+  .cooling-system-content,
+  .cooling-system-close {
+    animation-duration: 0.01ms;
+    animation-delay: 0s;
+  }
+}
+
+@keyframes ram-module-open-mobile {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes hardware-panel-in-mobile {
+  from {
+    opacity: 0;
+    transform: translateY(34px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
