@@ -308,8 +308,17 @@ function createGpuCableDeformer(cable: Object3D, model: Object3D) {
 
   cable.traverse((object) => {
     if (!(object instanceof Mesh)) return;
-    const geometry = object.geometry.clone();
-    object.geometry = geometry;
+    const activeDeformationGeometry = object.userData
+      .gpuCableDeformationGeometry as Mesh["geometry"] | undefined;
+    const geometry =
+      activeDeformationGeometry === object.geometry
+        ? activeDeformationGeometry
+        : object.geometry.clone();
+
+    if (geometry !== object.geometry) {
+      object.geometry = geometry;
+      object.userData.gpuCableDeformationGeometry = geometry;
+    }
     object.frustumCulled = false;
     const position = geometry.getAttribute("position");
     const meshToModel = modelWorldInverse.clone().multiply(object.matrixWorld);
@@ -397,23 +406,20 @@ function createGpuCableDeformer(cable: Object3D, model: Object3D) {
   if (caseVertices > 0) caseEnd.multiplyScalar(1 / caseVertices);
   if (gpuVertices > 0) gpuEnd.multiplyScalar(1 / gpuVertices);
   const cableAxis = gpuEnd.clone().sub(caseEnd);
+  const baseCableDirection = cableAxis.clone().normalize();
   const cableLengthSquared = Math.max(cableAxis.lengthSq(), 0.000001);
   const centerlineBinCount = 64;
   const centerlineX = new Float32Array(centerlineBinCount);
   const centerlineY = new Float32Array(centerlineBinCount);
   const centerlineZ = new Float32Array(centerlineBinCount);
   const centerlineCounts = new Uint32Array(centerlineBinCount);
+  const getRawProgress = (x: number, y: number, z: number) =>
+    ((x - caseEnd.x) * cableAxis.x +
+      (y - caseEnd.y) * cableAxis.y +
+      (z - caseEnd.z) * cableAxis.z) /
+    cableLengthSquared;
   const getProgress = (x: number, y: number, z: number) =>
-    Math.min(
-      Math.max(
-        ((x - caseEnd.x) * cableAxis.x +
-          (y - caseEnd.y) * cableAxis.y +
-          (z - caseEnd.z) * cableAxis.z) /
-          cableLengthSquared,
-        0,
-      ),
-      1,
-    );
+    Math.min(Math.max(getRawProgress(x, y, z), 0), 1);
 
   for (let offset = 0; offset < mainPositions.length; offset += 3) {
     const progress = getProgress(
@@ -504,11 +510,300 @@ function createGpuCableDeformer(cable: Object3D, model: Object3D) {
     target.z =
       centerlineZ[lower] + (centerlineZ[upper] - centerlineZ[lower]) * amount;
   };
+  const createStrandRadialOffsets = () => {
+    const cachedOffsets = mainCable.geometry.userData
+      .gpuCableStrandRadialOffsets as Float32Array | undefined;
+
+    if (cachedOffsets?.length === mainPositions.length) return cachedOffsets;
+    const indexAttribute = mainCable.geometry.getIndex();
+    if (!indexAttribute) return null;
+
+    const vertexCount = mainCable.position.count;
+    const parents = new Int32Array(vertexCount);
+    const componentSizes = new Uint32Array(vertexCount);
+
+    for (let index = 0; index < vertexCount; index += 1) {
+      parents[index] = index;
+      componentSizes[index] = 1;
+    }
+
+    const findRoot = (value: number) => {
+      let root = value;
+      while (parents[root] !== root) root = parents[root];
+
+      while (parents[value] !== value) {
+        const next = parents[value];
+        parents[value] = root;
+        value = next;
+      }
+      return root;
+    };
+    const joinVertices = (left: number, right: number) => {
+      let leftRoot = findRoot(left);
+      let rightRoot = findRoot(right);
+      if (leftRoot === rightRoot) return;
+
+      if (componentSizes[leftRoot] < componentSizes[rightRoot]) {
+        [leftRoot, rightRoot] = [rightRoot, leftRoot];
+      }
+      parents[rightRoot] = leftRoot;
+      componentSizes[leftRoot] += componentSizes[rightRoot];
+    };
+
+    for (let offset = 0; offset < indexAttribute.count; offset += 3) {
+      const first = indexAttribute.getX(offset);
+      const second = indexAttribute.getX(offset + 1);
+      const third = indexAttribute.getX(offset + 2);
+      joinVertices(first, second);
+      joinVertices(second, third);
+      joinVertices(third, first);
+    }
+
+    const rootToComponent = new Map<number, number>();
+    const vertexComponents = new Uint16Array(vertexCount);
+
+    for (let index = 0; index < vertexCount; index += 1) {
+      const root = findRoot(index);
+      let component = rootToComponent.get(root);
+      if (component === undefined) {
+        component = rootToComponent.size;
+        rootToComponent.set(root, component);
+      }
+      vertexComponents[index] = component;
+    }
+
+    const componentCount = rootToComponent.size;
+    const componentCenters = new Float32Array(
+      componentCount * centerlineBinCount * 3,
+    );
+    const componentCounts = new Uint32Array(
+      componentCount * centerlineBinCount,
+    );
+
+    for (let index = 0; index < vertexCount; index += 1) {
+      const offset = index * 3;
+      const progress = getProgress(
+        mainPositions[offset],
+        mainPositions[offset + 1],
+        mainPositions[offset + 2],
+      );
+      const bin = Math.min(
+        Math.floor(progress * centerlineBinCount),
+        centerlineBinCount - 1,
+      );
+      const component = vertexComponents[index];
+      const binIndex = component * centerlineBinCount + bin;
+      const centerOffset = binIndex * 3;
+      componentCenters[centerOffset] += mainPositions[offset];
+      componentCenters[centerOffset + 1] += mainPositions[offset + 1];
+      componentCenters[centerOffset + 2] += mainPositions[offset + 2];
+      componentCounts[binIndex] += 1;
+    }
+
+    for (let component = 0; component < componentCount; component += 1) {
+      const componentStart = component * centerlineBinCount;
+
+      for (let bin = 0; bin < centerlineBinCount; bin += 1) {
+        const binIndex = componentStart + bin;
+        const count = componentCounts[binIndex];
+        if (count === 0) continue;
+        const centerOffset = binIndex * 3;
+        componentCenters[centerOffset] /= count;
+        componentCenters[centerOffset + 1] /= count;
+        componentCenters[centerOffset + 2] /= count;
+      }
+
+      for (let bin = 0; bin < centerlineBinCount; bin += 1) {
+        const binIndex = componentStart + bin;
+        if (componentCounts[binIndex] > 0) continue;
+        let left = bin - 1;
+        let right = bin + 1;
+        while (left >= 0 && componentCounts[componentStart + left] === 0) {
+          left -= 1;
+        }
+        while (
+          right < centerlineBinCount &&
+          componentCounts[componentStart + right] === 0
+        ) {
+          right += 1;
+        }
+
+        const centerOffset = binIndex * 3;
+        if (left >= 0 && right < centerlineBinCount) {
+          const amount = (bin - left) / (right - left);
+          const leftOffset = (componentStart + left) * 3;
+          const rightOffset = (componentStart + right) * 3;
+          componentCenters[centerOffset] =
+            componentCenters[leftOffset] +
+            (componentCenters[rightOffset] - componentCenters[leftOffset]) *
+              amount;
+          componentCenters[centerOffset + 1] =
+            componentCenters[leftOffset + 1] +
+            (componentCenters[rightOffset + 1] -
+              componentCenters[leftOffset + 1]) *
+              amount;
+          componentCenters[centerOffset + 2] =
+            componentCenters[leftOffset + 2] +
+            (componentCenters[rightOffset + 2] -
+              componentCenters[leftOffset + 2]) *
+              amount;
+        } else {
+          const sourceBin = left >= 0 ? left : right;
+          const sourceOffset = (componentStart + sourceBin) * 3;
+          componentCenters[centerOffset] = componentCenters[sourceOffset];
+          componentCenters[centerOffset + 1] =
+            componentCenters[sourceOffset + 1];
+          componentCenters[centerOffset + 2] =
+            componentCenters[sourceOffset + 2];
+        }
+      }
+    }
+
+    const strandOffsets = new Float32Array(mainPositions.length);
+    const laneOffsets = new Float32Array(componentCount * 3);
+    const midpointPosition = (centerlineBinCount - 1) * 0.5;
+    const midpointLower = Math.floor(midpointPosition);
+    const midpointUpper = Math.ceil(midpointPosition);
+    const midpointAmount = midpointPosition - midpointLower;
+    const bundleMidpoint = { x: 0, y: 0, z: 0 };
+    readCenterline(0.5, bundleMidpoint);
+
+    for (let component = 0; component < componentCount; component += 1) {
+      const lowerOffset = (component * centerlineBinCount + midpointLower) * 3;
+      const upperOffset = (component * centerlineBinCount + midpointUpper) * 3;
+      const laneOffset = component * 3;
+      let laneX =
+        componentCenters[lowerOffset] +
+        (componentCenters[upperOffset] - componentCenters[lowerOffset]) *
+          midpointAmount -
+        bundleMidpoint.x;
+      let laneY =
+        componentCenters[lowerOffset + 1] +
+        (componentCenters[upperOffset + 1] -
+          componentCenters[lowerOffset + 1]) *
+          midpointAmount -
+        bundleMidpoint.y;
+      let laneZ =
+        componentCenters[lowerOffset + 2] +
+        (componentCenters[upperOffset + 2] -
+          componentCenters[lowerOffset + 2]) *
+          midpointAmount -
+        bundleMidpoint.z;
+      const axialOffset =
+        laneX * baseCableDirection.x +
+        laneY * baseCableDirection.y +
+        laneZ * baseCableDirection.z;
+      laneX -= axialOffset * baseCableDirection.x;
+      laneY -= axialOffset * baseCableDirection.y;
+      laneZ -= axialOffset * baseCableDirection.z;
+      laneOffsets[laneOffset] = laneX;
+      laneOffsets[laneOffset + 1] = laneY;
+      laneOffsets[laneOffset + 2] = laneZ;
+    }
+
+    for (let index = 0; index < vertexCount; index += 1) {
+      const offset = index * 3;
+      const progress = getProgress(
+        mainPositions[offset],
+        mainPositions[offset + 1],
+        mainPositions[offset + 2],
+      );
+      const centerPosition = progress * (centerlineBinCount - 1);
+      const lower = Math.floor(centerPosition);
+      const upper = Math.min(lower + 1, centerlineBinCount - 1);
+      const amount = centerPosition - lower;
+      const component = vertexComponents[index];
+      const lowerOffset = (component * centerlineBinCount + lower) * 3;
+      const upperOffset = (component * centerlineBinCount + upper) * 3;
+      const laneOffset = component * 3;
+      const centerX =
+        componentCenters[lowerOffset] +
+        (componentCenters[upperOffset] - componentCenters[lowerOffset]) *
+          amount;
+      const centerY =
+        componentCenters[lowerOffset + 1] +
+        (componentCenters[upperOffset + 1] -
+          componentCenters[lowerOffset + 1]) *
+          amount;
+      const centerZ =
+        componentCenters[lowerOffset + 2] +
+        (componentCenters[upperOffset + 2] -
+          componentCenters[lowerOffset + 2]) *
+          amount;
+      strandOffsets[offset] =
+        mainPositions[offset] - centerX + laneOffsets[laneOffset];
+      strandOffsets[offset + 1] =
+        mainPositions[offset + 1] - centerY + laneOffsets[laneOffset + 1];
+      strandOffsets[offset + 2] =
+        mainPositions[offset + 2] - centerZ + laneOffsets[laneOffset + 2];
+    }
+
+    mainCable.geometry.userData.gpuCableStrandRadialOffsets = strandOffsets;
+    return strandOffsets;
+  };
+  const mainCableStrandOffsets = createStrandRadialOffsets();
   const sampledCenter = { x: 0, y: 0, z: 0 };
+  const cableSupportStates = new Set<(typeof meshStates)[number]>();
+  let supportMinimumProgress = Number.POSITIVE_INFINITY;
+  let supportMaximumProgress = Number.NEGATIVE_INFINITY;
 
   meshStates.forEach((state) => {
-    const isGpuConnector = state !== mainCable;
+    let minimumRawProgress = Number.POSITIVE_INFINITY;
+    let maximumRawProgress = Number.NEGATIVE_INFINITY;
 
+    for (
+      let offset = 0;
+      offset < state.baseModelPositions.length;
+      offset += 3
+    ) {
+      const rawProgress = getRawProgress(
+        state.baseModelPositions[offset],
+        state.baseModelPositions[offset + 1],
+        state.baseModelPositions[offset + 2],
+      );
+      minimumRawProgress = Math.min(minimumRawProgress, rawProgress);
+      maximumRawProgress = Math.max(maximumRawProgress, rawProgress);
+    }
+
+    const isCableSupport =
+      state !== mainCable && maximumRawProgress - minimumRawProgress < 0.24;
+    if (isCableSupport) {
+      cableSupportStates.add(state);
+      supportMinimumProgress = Math.min(
+        supportMinimumProgress,
+        minimumRawProgress,
+      );
+      supportMaximumProgress = Math.max(
+        supportMaximumProgress,
+        maximumRawProgress,
+      );
+    }
+  });
+
+  const supportProgress =
+    cableSupportStates.size > 0
+      ? Math.min(
+          Math.max((supportMinimumProgress + supportMaximumProgress) * 0.5, 0),
+          1,
+        )
+      : 1;
+  readCenterline(supportProgress, sampledCenter);
+  const supportBaseCenter = new Vector3(
+    sampledCenter.x,
+    sampledCenter.y,
+    sampledCenter.z,
+  );
+  const supportTangentStart = { x: 0, y: 0, z: 0 };
+  const supportTangentEnd = { x: 0, y: 0, z: 0 };
+  readCenterline(Math.max(supportProgress - 0.02, 0), supportTangentStart);
+  readCenterline(Math.min(supportProgress + 0.02, 1), supportTangentEnd);
+  const supportBaseDirection = new Vector3(
+    supportTangentEnd.x - supportTangentStart.x,
+    supportTangentEnd.y - supportTangentStart.y,
+    supportTangentEnd.z - supportTangentStart.z,
+  ).normalize();
+
+  meshStates.forEach((state) => {
     for (
       let offset = 0, index = 0;
       offset < state.baseModelPositions.length;
@@ -519,31 +814,32 @@ function createGpuCableDeformer(cable: Object3D, model: Object3D) {
         state.baseModelPositions[offset + 1],
         state.baseModelPositions[offset + 2],
       );
-      const progress = isGpuConnector
-        ? 1
-        : rawProgress <= 0.08
-          ? 0
-          : rawProgress >= 0.88
-            ? 1
-            : (rawProgress - 0.08) / 0.8;
+      const progress = rawProgress;
       readCenterline(progress, sampledCenter);
       state.progress[index] = progress;
-      state.weights[index] = isGpuConnector ? 1 : smoothstep(progress);
-      state.radialOffsets[offset] =
-        state.baseModelPositions[offset] - sampledCenter.x;
-      state.radialOffsets[offset + 1] =
-        state.baseModelPositions[offset + 1] - sampledCenter.y;
-      state.radialOffsets[offset + 2] =
-        state.baseModelPositions[offset + 2] - sampledCenter.z;
+      state.weights[index] = smoothstep(progress);
+      if (state === mainCable && mainCableStrandOffsets) {
+        state.radialOffsets[offset] = mainCableStrandOffsets[offset];
+        state.radialOffsets[offset + 1] = mainCableStrandOffsets[offset + 1];
+        state.radialOffsets[offset + 2] = mainCableStrandOffsets[offset + 2];
+      } else {
+        state.radialOffsets[offset] =
+          state.baseModelPositions[offset] - sampledCenter.x;
+        state.radialOffsets[offset + 1] =
+          state.baseModelPositions[offset + 1] - sampledCenter.y;
+        state.radialOffsets[offset + 2] =
+          state.baseModelPositions[offset + 2] - sampledCenter.z;
+      }
     }
   });
   const lastDeltaElements = new Float32Array(16);
   lastDeltaElements.fill(Number.NaN);
   let lastTension = Number.NaN;
-  const identityRotation = new Quaternion();
-  const deltaRotation = new Quaternion();
-  const interpolatedRotation = new Quaternion();
-  const rotationBins = new Float32Array(centerlineBinCount * 9);
+  const straightTargetDirection = new Vector3();
+  const cableStraightRotation = new Quaternion();
+  const cableStraightRotationMatrix = new Matrix4();
+  const supportRotation = new Quaternion();
+  const supportRotationMatrix = new Matrix4();
 
   return {
     apply: (delta: Matrix4, tension: number) => {
@@ -563,28 +859,6 @@ function createGpuCableDeformer(cable: Object3D, model: Object3D) {
       }
       lastDeltaElements.set(deltaElements);
       lastTension = clampedTension;
-      deltaRotation.setFromRotationMatrix(delta);
-
-      for (let bin = 0; bin < centerlineBinCount; bin += 1) {
-        const amount = bin / (centerlineBinCount - 1);
-        interpolatedRotation
-          .copy(identityRotation)
-          .slerp(deltaRotation, amount);
-        const x = interpolatedRotation.x;
-        const y = interpolatedRotation.y;
-        const z = interpolatedRotation.z;
-        const w = interpolatedRotation.w;
-        const offset = bin * 9;
-        rotationBins[offset] = 1 - 2 * (y * y + z * z);
-        rotationBins[offset + 1] = 2 * (x * y + z * w);
-        rotationBins[offset + 2] = 2 * (x * z - y * w);
-        rotationBins[offset + 3] = 2 * (x * y - z * w);
-        rotationBins[offset + 4] = 1 - 2 * (x * x + z * z);
-        rotationBins[offset + 5] = 2 * (y * z + x * w);
-        rotationBins[offset + 6] = 2 * (x * z + y * w);
-        rotationBins[offset + 7] = 2 * (y * z - x * w);
-        rotationBins[offset + 8] = 1 - 2 * (x * x + y * y);
-      }
 
       const movedGpuEndX =
         deltaElements[0] * gpuEnd.x +
@@ -601,11 +875,48 @@ function createGpuCableDeformer(cable: Object3D, model: Object3D) {
         deltaElements[6] * gpuEnd.y +
         deltaElements[10] * gpuEnd.z +
         deltaElements[14];
+      const straightAxisX = movedGpuEndX - caseEnd.x;
+      const straightAxisY = movedGpuEndY - caseEnd.y;
+      const straightAxisZ = movedGpuEndZ - caseEnd.z;
+      const straightAxisLength = Math.max(
+        Math.sqrt(
+          straightAxisX * straightAxisX +
+            straightAxisY * straightAxisY +
+            straightAxisZ * straightAxisZ,
+        ),
+        0.000001,
+      );
+      const straightDirectionX = straightAxisX / straightAxisLength;
+      const straightDirectionY = straightAxisY / straightAxisLength;
+      const straightDirectionZ = straightAxisZ / straightAxisLength;
+      straightTargetDirection.set(
+        straightDirectionX,
+        straightDirectionY,
+        straightDirectionZ,
+      );
+      cableStraightRotation.setFromUnitVectors(
+        baseCableDirection,
+        straightTargetDirection,
+      );
+      cableStraightRotationMatrix.makeRotationFromQuaternion(
+        cableStraightRotation,
+      );
+      const cableRotationElements = cableStraightRotationMatrix.elements;
+      supportRotation.setFromUnitVectors(
+        supportBaseDirection,
+        straightTargetDirection,
+      );
+      supportRotationMatrix.makeRotationFromQuaternion(supportRotation);
+      const supportRotationElements = supportRotationMatrix.elements;
+      const supportTargetCenterX = caseEnd.x + straightAxisX * supportProgress;
+      const supportTargetCenterY = caseEnd.y + straightAxisY * supportProgress;
+      const supportTargetCenterZ = caseEnd.z + straightAxisZ * supportProgress;
 
       meshStates.forEach((state) => {
         const localElements = state.modelToMesh.elements;
         const source = state.baseModelPositions;
         const radialOffsets = state.radialOffsets;
+        const isCableSupport = cableSupportStates.has(state);
 
         for (
           let offset = 0, index = 0;
@@ -635,35 +946,64 @@ function createGpuCableDeformer(cable: Object3D, model: Object3D) {
           const looseY = baseY + (movedY - baseY) * weight;
           const looseZ = baseZ + (movedZ - baseZ) * weight;
           const progress = state.progress[index];
-          const rotationBin = Math.min(
-            Math.round(progress * (centerlineBinCount - 1)),
-            centerlineBinCount - 1,
-          );
-          const rotationOffset = rotationBin * 9;
           const radialX = radialOffsets[offset];
           const radialY = radialOffsets[offset + 1];
           const radialZ = radialOffsets[offset + 2];
-          const rotatedRadialX =
-            rotationBins[rotationOffset] * radialX +
-            rotationBins[rotationOffset + 3] * radialY +
-            rotationBins[rotationOffset + 6] * radialZ;
-          const rotatedRadialY =
-            rotationBins[rotationOffset + 1] * radialX +
-            rotationBins[rotationOffset + 4] * radialY +
-            rotationBins[rotationOffset + 7] * radialZ;
-          const rotatedRadialZ =
-            rotationBins[rotationOffset + 2] * radialX +
-            rotationBins[rotationOffset + 5] * radialY +
-            rotationBins[rotationOffset + 8] * radialZ;
+          let rotatedRadialX =
+            cableRotationElements[0] * radialX +
+            cableRotationElements[4] * radialY +
+            cableRotationElements[8] * radialZ;
+          let rotatedRadialY =
+            cableRotationElements[1] * radialX +
+            cableRotationElements[5] * radialY +
+            cableRotationElements[9] * radialZ;
+          let rotatedRadialZ =
+            cableRotationElements[2] * radialX +
+            cableRotationElements[6] * radialY +
+            cableRotationElements[10] * radialZ;
+
+          if (!isCableSupport) {
+            const axialOffset =
+              rotatedRadialX * straightDirectionX +
+              rotatedRadialY * straightDirectionY +
+              rotatedRadialZ * straightDirectionZ;
+            rotatedRadialX -= axialOffset * straightDirectionX;
+            rotatedRadialY -= axialOffset * straightDirectionY;
+            rotatedRadialZ -= axialOffset * straightDirectionZ;
+          }
           const straightX =
             caseEnd.x + (movedGpuEndX - caseEnd.x) * progress + rotatedRadialX;
           const straightY =
             caseEnd.y + (movedGpuEndY - caseEnd.y) * progress + rotatedRadialY;
           const straightZ =
             caseEnd.z + (movedGpuEndZ - caseEnd.z) * progress + rotatedRadialZ;
-          const modelX = looseX + (straightX - looseX) * clampedTension;
-          const modelY = looseY + (straightY - looseY) * clampedTension;
-          const modelZ = looseZ + (straightZ - looseZ) * clampedTension;
+          let modelX = looseX + (straightX - looseX) * clampedTension;
+          let modelY = looseY + (straightY - looseY) * clampedTension;
+          let modelZ = looseZ + (straightZ - looseZ) * clampedTension;
+
+          if (isCableSupport) {
+            const relativeX = baseX - supportBaseCenter.x;
+            const relativeY = baseY - supportBaseCenter.y;
+            const relativeZ = baseZ - supportBaseCenter.z;
+            const supportX =
+              supportTargetCenterX +
+              supportRotationElements[0] * relativeX +
+              supportRotationElements[4] * relativeY +
+              supportRotationElements[8] * relativeZ;
+            const supportY =
+              supportTargetCenterY +
+              supportRotationElements[1] * relativeX +
+              supportRotationElements[5] * relativeY +
+              supportRotationElements[9] * relativeZ;
+            const supportZ =
+              supportTargetCenterZ +
+              supportRotationElements[2] * relativeX +
+              supportRotationElements[6] * relativeY +
+              supportRotationElements[10] * relativeZ;
+            modelX = baseX + (supportX - baseX) * clampedTension;
+            modelY = baseY + (supportY - baseY) * clampedTension;
+            modelZ = baseZ + (supportZ - baseZ) * clampedTension;
+          }
           const localX =
             localElements[0] * modelX +
             localElements[4] * modelY +
@@ -747,23 +1087,34 @@ function isolateHighlightMaterials(parts: Object3D[]) {
       const sourceMaterials = Array.isArray(object.material)
         ? object.material
         : [object.material];
-      const isolatedMaterials = sourceMaterials.map((material) => {
-        let isolated = clones.get(material);
+      const activeHighlightMaterials = object.userData
+        .activeHighlightMaterials as Material[] | undefined;
+      const canReuseActiveMaterials =
+        activeHighlightMaterials?.length === sourceMaterials.length &&
+        activeHighlightMaterials.every(
+          (material, index) => material === sourceMaterials[index],
+        );
+      const isolatedMaterials = canReuseActiveMaterials
+        ? sourceMaterials
+        : sourceMaterials.map((material) => {
+            let isolated = clones.get(material);
 
-        if (!isolated) {
-          const clonedMaterial = material.clone();
-          clones.set(material, clonedMaterial);
-          isolated = clonedMaterial;
-        }
-        if (isolated instanceof MeshStandardMaterial) {
-          highlighted.add(isolated);
-        }
-        return isolated;
+            if (!isolated) {
+              const clonedMaterial = material.clone();
+              clones.set(material, clonedMaterial);
+              isolated = clonedMaterial;
+            }
+            return isolated;
+          });
+
+      isolatedMaterials.forEach((material) => {
+        if (material instanceof MeshStandardMaterial) highlighted.add(material);
       });
 
       object.material = Array.isArray(object.material)
         ? isolatedMaterials
         : isolatedMaterials[0]!;
+      object.userData.activeHighlightMaterials = isolatedMaterials;
     });
   });
 
