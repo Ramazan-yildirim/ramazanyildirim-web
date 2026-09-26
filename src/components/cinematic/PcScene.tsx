@@ -293,8 +293,10 @@ function getCenter(object: Object3D) {
 }
 
 function createGpuCableDeformer(cable: Object3D, model: Object3D) {
-  const endpointRigidRange = 0.018;
-  const endpointBlendRange = 0.05;
+  const caseEndpointRigidRange = 0.018;
+  const caseEndpointBlendRange = 0.05;
+  const gpuEndpointRigidRange = 0.008;
+  const gpuEndpointBlendRange = 0.14;
   model.updateWorldMatrix(true, true);
   cable.updateWorldMatrix(true, true);
   const modelWorldInverse = model.matrixWorld.clone().invert();
@@ -1172,22 +1174,20 @@ function createGpuCableDeformer(cable: Object3D, model: Object3D) {
             modelY = baseY + (supportY - baseY) * clampedTension;
             modelZ = baseZ + (supportZ - baseZ) * clampedTension;
           } else {
-            // Straightening rotates the cable cross-section, which is correct
-            // along its free span but would make either plug appear to slide.
-            // Blend the first/last few percent back to their rigid endpoint
-            // transforms so the case end stays on the case and the GPU end
-            // follows the card exactly.
+            // Keep the case-side sleeve rigid and distribute the GPU-side
+            // orientation change across the entire support-to-plug span. This
+            // avoids concentrating the turn into a visible kink by the plug.
             const caseLock =
               1 -
               smoothstep(
-                (progress - endpointRigidRange) / endpointBlendRange,
+                (progress - caseEndpointRigidRange) /
+                  caseEndpointBlendRange,
               );
             const gpuLock = smoothstep(
               (progress -
-                (1 - endpointRigidRange - endpointBlendRange)) /
-                endpointBlendRange,
+                (1 - gpuEndpointRigidRange - gpuEndpointBlendRange)) /
+                gpuEndpointBlendRange,
             );
-
             modelX += (baseX - modelX) * caseLock;
             modelY += (baseY - modelY) * caseLock;
             modelZ += (baseZ - modelZ) * caseLock;
