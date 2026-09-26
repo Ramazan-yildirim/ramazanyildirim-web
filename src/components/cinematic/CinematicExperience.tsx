@@ -27,6 +27,8 @@ const PcCanvas = dynamic(
 
 gsap.registerPlugin(ScrollTrigger, useGSAP);
 
+const HARDWARE_INTERACTION_START = 0.92;
+
 function getPhase(progress: number) {
   if (progress < 0.18) return "focus";
   if (progress < 0.4) return "reveal";
@@ -101,7 +103,7 @@ export function CinematicExperience() {
           range(progress, 0.43, 0.53) * (1 - range(progress, 0.82, 0.92));
         const completeOpacity = range(progress, 0.9, 0.98);
         const sceneShade = 0.92 - range(progress, 0.1, 0.32) * 0.72;
-        const nextInteractionReady = progress >= 0.995;
+        const nextInteractionReady = progress >= HARDWARE_INTERACTION_START;
 
         if (nextInteractionReady !== interactionReadyRef.current) {
           interactionReadyRef.current = nextInteractionReady;

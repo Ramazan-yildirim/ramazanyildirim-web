@@ -42,6 +42,7 @@ const CPU_FACE_WIDTH_SCALE = 1.0;
 const CPU_FACE_HEIGHT_SCALE = 1.02;
 const CPU_FACE_CORNER_RADIUS = 84;
 const CPU_FACE_TEXTURE_INSET = 30;
+const HARDWARE_INTERACTION_START = 0.92;
 
 type PcSceneProps = {
   cpuFaceCornerRadius?: number;
@@ -2285,7 +2286,8 @@ export function PcScene({
       }
 
       const interactionOwnsCamera =
-        Boolean(interactionKindRef.current) && progress >= 0.995;
+        Boolean(interactionKindRef.current) &&
+        progress >= HARDWARE_INTERACTION_START;
 
       if (!interactionOwnsCamera) {
         camera.position.copy(cameraPosition);
@@ -2468,7 +2470,9 @@ export function PcScene({
   useEffect(() => {
     interactionTimelineRef.current?.kill();
 
-    const canInteract = interactionReady && lastProgressRef.current >= 0.995;
+    const canInteract =
+      interactionReady &&
+      lastProgressRef.current >= HARDWARE_INTERACTION_START;
     const selectedRamIndex =
       canInteract && interaction?.kind === "ram" ? interaction.ramIndex : -1;
     const gpuSelected = canInteract && interaction?.kind === "gpu";
