@@ -293,13 +293,19 @@ function getCenter(object: Object3D) {
 }
 
 function createGpuCableDeformer(cable: Object3D, model: Object3D) {
+  const endpointRigidRange = 0.018;
+  const endpointBlendRange = 0.05;
   model.updateWorldMatrix(true, true);
   cable.updateWorldMatrix(true, true);
   const modelWorldInverse = model.matrixWorld.clone().invert();
   const meshStates: Array<{
     baseModelPositions: Float32Array;
+    gpuConnectorVertices: Uint8Array;
+    gpuSupportVertices: Uint8Array;
+    gpuSupportWeights: Float32Array;
     geometry: Mesh["geometry"];
     modelToMesh: Matrix4;
+    name: string;
     position: ReturnType<Mesh["geometry"]["getAttribute"]>;
     progress: Float32Array;
     radialOffsets: Float32Array;
@@ -337,7 +343,11 @@ function createGpuCableDeformer(cable: Object3D, model: Object3D) {
     meshStates.push({
       baseModelPositions,
       geometry,
+      gpuConnectorVertices: new Uint8Array(position.count),
+      gpuSupportVertices: new Uint8Array(position.count),
+      gpuSupportWeights: new Float32Array(position.count),
       modelToMesh,
+      name: object.name,
       position,
       progress: new Float32Array(position.count),
       radialOffsets: new Float32Array(position.count * 3),
@@ -746,27 +756,173 @@ function createGpuCableDeformer(cable: Object3D, model: Object3D) {
   const cableSupportStates = new Set<(typeof meshStates)[number]>();
   let supportMinimumProgress = Number.POSITIVE_INFINITY;
   let supportMaximumProgress = Number.NEGATIVE_INFINITY;
+  const gpuSupportClosureOffset = new Vector3();
+
+  meshStates.forEach((state) => {
+    if (state === mainCable) return;
+
+    // The plug shell, terminal pieces and cable comb form one rigid GPU-side
+    // assembly. Keeping them on the same transform prevents seams between
+    // disconnected geometry components after the GPU opens.
+    state.gpuConnectorVertices.fill(1);
+    if (state.name !== 'Cube532') return;
+
+    const indexAttribute = state.geometry.getIndex();
+    if (!indexAttribute) return;
+    const parents = new Int32Array(state.position.count);
+    for (let index = 0; index < parents.length; index += 1) {
+      parents[index] = index;
+    }
+    const findRoot = (value: number) => {
+      let root = value;
+      while (parents[root] !== root) root = parents[root];
+      while (parents[value] !== value) {
+        const next = parents[value];
+        parents[value] = root;
+        value = next;
+      }
+      return root;
+    };
+    const joinVertices = (left: number, right: number) => {
+      const leftRoot = findRoot(left);
+      const rightRoot = findRoot(right);
+      if (leftRoot !== rightRoot) parents[rightRoot] = leftRoot;
+    };
+    for (let offset = 0; offset < indexAttribute.count; offset += 3) {
+      const first = indexAttribute.getX(offset);
+      const second = indexAttribute.getX(offset + 1);
+      const third = indexAttribute.getX(offset + 2);
+      joinVertices(first, second);
+      joinVertices(second, third);
+      joinVertices(third, first);
+    }
+
+    const components = new Map<
+      number,
+      {
+        count: number;
+        progressTotal: number;
+        x: number;
+        y: number;
+        z: number;
+      }
+    >();
+    for (let index = 0; index < state.position.count; index += 1) {
+      const root = findRoot(index);
+      const offset = index * 3;
+      const progress = getRawProgress(
+        state.baseModelPositions[offset],
+        state.baseModelPositions[offset + 1],
+        state.baseModelPositions[offset + 2],
+      );
+      const component = components.get(root) ?? {
+        count: 0,
+        progressTotal: 0,
+        x: 0,
+        y: 0,
+        z: 0,
+      };
+      component.count += 1;
+      component.progressTotal += progress;
+      component.x += state.baseModelPositions[offset];
+      component.y += state.baseModelPositions[offset + 1];
+      component.z += state.baseModelPositions[offset + 2];
+      components.set(root, component);
+    }
+
+    let supportRoot = -1;
+    let supportAverage = Number.POSITIVE_INFINITY;
+    let connectorRoot = -1;
+    let connectorAverage = Number.NEGATIVE_INFINITY;
+    components.forEach((component, root) => {
+      const average = component.progressTotal / component.count;
+      if (average < supportAverage) {
+        supportAverage = average;
+        supportRoot = root;
+      }
+      if (average > connectorAverage) {
+        connectorAverage = average;
+        connectorRoot = root;
+      }
+    });
+    const supportComponent = components.get(supportRoot);
+    const connectorComponent = components.get(connectorRoot);
+    if (supportComponent && connectorComponent) {
+      gpuSupportClosureOffset
+        .set(
+          connectorComponent.x / connectorComponent.count -
+            supportComponent.x / supportComponent.count,
+          connectorComponent.y / connectorComponent.count -
+            supportComponent.y / supportComponent.count,
+          connectorComponent.z / connectorComponent.count -
+            supportComponent.z / supportComponent.count,
+        )
+        .multiplyScalar(0.3);
+    }
+    for (let index = 0; index < state.position.count; index += 1) {
+      const isCableSupport = findRoot(index) === supportRoot;
+      state.gpuSupportVertices[index] = isCableSupport ? 1 : 0;
+      if (isCableSupport) state.gpuConnectorVertices[index] = 0;
+    }
+    let supportProjectionMinimum = Number.POSITIVE_INFINITY;
+    let supportProjectionMaximum = Number.NEGATIVE_INFINITY;
+    for (let index = 0; index < state.position.count; index += 1) {
+      if (state.gpuSupportVertices[index] === 0) continue;
+      const offset = index * 3;
+      const projection =
+        state.baseModelPositions[offset] * gpuSupportClosureOffset.x +
+        state.baseModelPositions[offset + 1] * gpuSupportClosureOffset.y +
+        state.baseModelPositions[offset + 2] * gpuSupportClosureOffset.z;
+      supportProjectionMinimum = Math.min(
+        supportProjectionMinimum,
+        projection,
+      );
+      supportProjectionMaximum = Math.max(
+        supportProjectionMaximum,
+        projection,
+      );
+    }
+    const supportProjectionRange = Math.max(
+      supportProjectionMaximum - supportProjectionMinimum,
+      0.000001,
+    );
+    for (let index = 0; index < state.position.count; index += 1) {
+      if (state.gpuSupportVertices[index] === 0) continue;
+      const offset = index * 3;
+      const projection =
+        state.baseModelPositions[offset] * gpuSupportClosureOffset.x +
+        state.baseModelPositions[offset + 1] * gpuSupportClosureOffset.y +
+        state.baseModelPositions[offset + 2] * gpuSupportClosureOffset.z;
+      state.gpuSupportWeights[index] = smoothstep(
+        (projection - supportProjectionMinimum) / supportProjectionRange,
+      );
+    }
+  });
 
   meshStates.forEach((state) => {
     let minimumRawProgress = Number.POSITIVE_INFINITY;
     let maximumRawProgress = Number.NEGATIVE_INFINITY;
 
     for (
-      let offset = 0;
+      let offset = 0, index = 0;
       offset < state.baseModelPositions.length;
-      offset += 3
+      offset += 3, index += 1
     ) {
       const rawProgress = getRawProgress(
         state.baseModelPositions[offset],
         state.baseModelPositions[offset + 1],
         state.baseModelPositions[offset + 2],
       );
-      minimumRawProgress = Math.min(minimumRawProgress, rawProgress);
-      maximumRawProgress = Math.max(maximumRawProgress, rawProgress);
+      if (state.gpuConnectorVertices[index] === 0) {
+        minimumRawProgress = Math.min(minimumRawProgress, rawProgress);
+        maximumRawProgress = Math.max(maximumRawProgress, rawProgress);
+      }
     }
 
     const isCableSupport =
-      state !== mainCable && maximumRawProgress - minimumRawProgress < 0.24;
+      state !== mainCable &&
+      Number.isFinite(minimumRawProgress) &&
+      maximumRawProgress - minimumRawProgress < 0.24;
     if (isCableSupport) {
       cableSupportStates.add(state);
       supportMinimumProgress = Math.min(
@@ -801,7 +957,12 @@ function createGpuCableDeformer(cable: Object3D, model: Object3D) {
     supportTangentEnd.x - supportTangentStart.x,
     supportTangentEnd.y - supportTangentStart.y,
     supportTangentEnd.z - supportTangentStart.z,
-  ).normalize();
+  );
+  if (supportBaseDirection.lengthSq() < 0.000001) {
+    supportBaseDirection.copy(baseCableDirection);
+  } else {
+    supportBaseDirection.normalize();
+  }
 
   meshStates.forEach((state) => {
     for (
@@ -809,15 +970,15 @@ function createGpuCableDeformer(cable: Object3D, model: Object3D) {
       offset < state.baseModelPositions.length;
       offset += 3, index += 1
     ) {
-      const rawProgress = getProgress(
+      const rawProgress = getRawProgress(
         state.baseModelPositions[offset],
         state.baseModelPositions[offset + 1],
         state.baseModelPositions[offset + 2],
       );
-      const progress = rawProgress;
-      readCenterline(progress, sampledCenter);
-      state.progress[index] = progress;
-      state.weights[index] = smoothstep(progress);
+      const centerlineProgress = Math.min(Math.max(rawProgress, 0), 1);
+      readCenterline(centerlineProgress, sampledCenter);
+      state.progress[index] = rawProgress;
+      state.weights[index] = smoothstep(centerlineProgress);
       if (state === mainCable && mainCableStrandOffsets) {
         state.radialOffsets[offset] = mainCableStrandOffsets[offset];
         state.radialOffsets[offset + 1] = mainCableStrandOffsets[offset + 1];
@@ -911,7 +1072,6 @@ function createGpuCableDeformer(cable: Object3D, model: Object3D) {
       const supportTargetCenterX = caseEnd.x + straightAxisX * supportProgress;
       const supportTargetCenterY = caseEnd.y + straightAxisY * supportProgress;
       const supportTargetCenterZ = caseEnd.z + straightAxisZ * supportProgress;
-
       meshStates.forEach((state) => {
         const localElements = state.modelToMesh.elements;
         const source = state.baseModelPositions;
@@ -980,8 +1140,16 @@ function createGpuCableDeformer(cable: Object3D, model: Object3D) {
           let modelX = looseX + (straightX - looseX) * clampedTension;
           let modelY = looseY + (straightY - looseY) * clampedTension;
           let modelZ = looseZ + (straightZ - looseZ) * clampedTension;
+          const isGpuConnector = state.gpuConnectorVertices[index] === 1;
 
-          if (isCableSupport) {
+          if (isGpuConnector) {
+            // The complete plug assembly follows the GPU as one rigid piece.
+            // No corrective vertex offset is allowed here: the GPU-side plug
+            // must remain fixed to the card throughout the whole animation.
+            modelX = movedX;
+            modelY = movedY;
+            modelZ = movedZ;
+          } else if (isCableSupport) {
             const relativeX = baseX - supportBaseCenter.x;
             const relativeY = baseY - supportBaseCenter.y;
             const relativeZ = baseZ - supportBaseCenter.z;
@@ -1003,6 +1171,29 @@ function createGpuCableDeformer(cable: Object3D, model: Object3D) {
             modelX = baseX + (supportX - baseX) * clampedTension;
             modelY = baseY + (supportY - baseY) * clampedTension;
             modelZ = baseZ + (supportZ - baseZ) * clampedTension;
+          } else {
+            // Straightening rotates the cable cross-section, which is correct
+            // along its free span but would make either plug appear to slide.
+            // Blend the first/last few percent back to their rigid endpoint
+            // transforms so the case end stays on the case and the GPU end
+            // follows the card exactly.
+            const caseLock =
+              1 -
+              smoothstep(
+                (progress - endpointRigidRange) / endpointBlendRange,
+              );
+            const gpuLock = smoothstep(
+              (progress -
+                (1 - endpointRigidRange - endpointBlendRange)) /
+                endpointBlendRange,
+            );
+
+            modelX += (baseX - modelX) * caseLock;
+            modelY += (baseY - modelY) * caseLock;
+            modelZ += (baseZ - modelZ) * caseLock;
+            modelX += (movedX - modelX) * gpuLock;
+            modelY += (movedY - modelY) * gpuLock;
+            modelZ += (movedZ - modelZ) * gpuLock;
           }
           const localX =
             localElements[0] * modelX +
@@ -1679,10 +1870,7 @@ export function PcScene({
       .sub(gpuCableDeformer.caseEnd);
     const openCableLength = openCableAxis.length();
 
-    if (
-      openCableLength > 0.0001 &&
-      gpuCableDeformer.restLength > openCableLength
-    ) {
+    if (openCableLength > 0.0001 && gpuCableDeformer.restLength > 0.0001) {
       gpuAssemblyOpenPosition.add(
         openCableAxis
           .normalize()
