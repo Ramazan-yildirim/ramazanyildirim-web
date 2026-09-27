@@ -48,6 +48,9 @@ const INTERACTION_REVEAL_STEP = 0.58;
 const INTERACTION_REVEAL_GLOW_DURATION = 0.21;
 const INTERACTION_REVEAL_HOLD_DURATION = 0.1;
 const INTERACTION_REVEAL_RESTORE_DURATION = 0.27;
+const GPU_INTERACTION_OPEN_DURATION = 2.4;
+const GPU_INTERACTION_CLOSE_DURATION = 2.2;
+const GPU_INTERACTION_START = 0.08;
 
 type PcSceneProps = {
   cpuFaceCornerRadius?: number;
@@ -2335,7 +2338,9 @@ export function PcScene({
       const interactionOwnsCamera =
         progress >= HARDWARE_INTERACTION_START &&
         (Boolean(interactionKindRef.current) ||
-          ramCameraAmountRef.current.value > 0.001);
+          ramCameraAmountRef.current.value > 0.001 ||
+          gpuCameraAmountRef.current.value > 0.001 ||
+          coolerCameraAmountRef.current.value > 0.001);
 
       if (!interactionOwnsCamera) {
         camera.position.copy(cameraPosition);
@@ -2778,7 +2783,9 @@ export function PcScene({
     timeline.to(
       setup.gpuAssembly.position,
       {
-        duration: gpuSelected ? 1.55 : 0.9,
+        duration: gpuSelected
+          ? GPU_INTERACTION_OPEN_DURATION
+          : GPU_INTERACTION_CLOSE_DURATION,
         x: gpuSelected
           ? setup.gpuAssemblyOpenPosition.x
           : setup.gpuAssemblyBasePosition.x,
@@ -2789,25 +2796,29 @@ export function PcScene({
           ? setup.gpuAssemblyOpenPosition.z
           : setup.gpuAssemblyBasePosition.z,
       },
-      gpuSelected ? 0.12 : 0.28,
+      gpuSelected ? GPU_INTERACTION_START : 0,
     );
     timeline.to(
       setup.gpuAssembly.rotation,
       {
-        duration: gpuSelected ? 1.55 : 0.9,
+        duration: gpuSelected
+          ? GPU_INTERACTION_OPEN_DURATION
+          : GPU_INTERACTION_CLOSE_DURATION,
         x: setup.gpuAssemblyBaseRotation.x + (gpuSelected ? Math.PI : 0),
         y: setup.gpuAssemblyBaseRotation.y,
         z: setup.gpuAssemblyBaseRotation.z,
       },
-      gpuSelected ? 0.12 : 0.28,
+      gpuSelected ? GPU_INTERACTION_START : 0,
     );
     timeline.to(
       setup.gpuCableTension,
       {
-        duration: gpuSelected ? 1.55 : 0.9,
+        duration: gpuSelected
+          ? GPU_INTERACTION_OPEN_DURATION
+          : GPU_INTERACTION_CLOSE_DURATION,
         value: gpuSelected ? 1 : 0,
       },
-      gpuSelected ? 0.12 : 0.28,
+      gpuSelected ? GPU_INTERACTION_START : 0,
     );
     const applyInteractionViewOffset = () => {
       if (!(camera instanceof PerspectiveCamera)) return;
@@ -2882,7 +2893,9 @@ export function PcScene({
       timeline.to(
         gpuCameraAmountRef.current,
         {
-          duration: gpuSelected ? 1.65 : 1.05,
+          duration: gpuSelected
+            ? GPU_INTERACTION_OPEN_DURATION
+            : GPU_INTERACTION_CLOSE_DURATION,
           onComplete: () => {
             if (!gpuSelected) {
               camera.up.set(0, 1, 0);
@@ -2892,7 +2905,7 @@ export function PcScene({
           onUpdate: updateGpuCamera,
           value: gpuSelected ? 1 : 0,
         },
-        gpuSelected ? 1.82 : 0,
+        gpuSelected ? GPU_INTERACTION_START : 0,
       );
     }
 
