@@ -1,6 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
+import { UI_COPY, type Locale } from "./i18n";
 import type {
   SceneHover,
   SceneInteraction,
@@ -11,6 +12,7 @@ type HardwareInteractionOverlayProps = {
   hoveredTarget: SceneHover | null;
   interaction: SceneInteraction;
   interactionReady: boolean;
+  locale: Locale;
   onClose: () => void;
   onRamFocusClose: () => void;
   ramFocusActive: boolean;
@@ -20,40 +22,6 @@ type AnchorStyle = CSSProperties & {
   "--anchor-x": string;
   "--anchor-y": string;
 };
-
-const HOVER_CONTENT = {
-  cooler: {
-    action: "OPEN",
-    title: "SYSTEM MONITOR",
-  },
-  gpu: {
-    action: "AI SYSTEM",
-    title: "GRAPHICS MODULE",
-  },
-  ram: {
-    action: "SELECT",
-    title: "MEMORY MODULE",
-  },
-} as const;
-
-const RAM_CONTENT = [
-  {
-    code: "ABOUT",
-    text: "Kişisel profil, çalışma yaklaşımı ve üretim odağı.",
-  },
-  {
-    code: "EXPERIENCE",
-    text: "Deneyimler, sorumluluklar ve tamamlanan çalışmalar.",
-  },
-  {
-    code: "PROJECTS",
-    text: "Seçilmiş projeler, teknik kararlar ve geliştirme süreçleri.",
-  },
-  {
-    code: "SKILLS / TECHNOLOGY",
-    text: "Kullanılan teknolojiler, araçlar ve teknik yetkinlikler.",
-  },
-] as const;
 
 function getAnchorStyle(anchor: ScreenAnchor): AnchorStyle {
   return {
@@ -66,14 +34,16 @@ export function HardwareInteractionOverlay({
   hoveredTarget,
   interaction,
   interactionReady,
+  locale,
   onClose,
   onRamFocusClose,
   ramFocusActive,
 }: HardwareInteractionOverlayProps) {
-  const hoverContent = hoveredTarget ? HOVER_CONTENT[hoveredTarget.kind] : null;
+  const copy = UI_COPY[locale].hardware;
+  const hoverContent = hoveredTarget ? copy.hover[hoveredTarget.kind] : null;
   const ramContent =
     interaction?.kind === "ram"
-      ? (RAM_CONTENT[interaction.ramIndex] ?? RAM_CONTENT[0])
+      ? (copy.ram[interaction.ramIndex] ?? copy.ram[0])
       : null;
 
   return (
@@ -95,7 +65,7 @@ export function HardwareInteractionOverlay({
 
       {interaction?.kind === "ram" && ramContent ? (
         <aside
-          aria-label={`RAM ${interaction.ramIndex + 1} bilgi paneli`}
+          aria-label={copy.ramLabel(interaction.ramIndex + 1)}
           aria-modal="false"
           className="ram-module-panel"
           role="dialog"
@@ -105,7 +75,7 @@ export function HardwareInteractionOverlay({
           <div className="ram-panel-header">
             <p>MEMORY / {String(interaction.ramIndex + 1).padStart(2, "0")}</p>
             <button
-              aria-label="RAM bilgi panelini kapat"
+              aria-label={copy.closeRam}
               className="interaction-close"
               onClick={onClose}
               type="button"
@@ -115,8 +85,8 @@ export function HardwareInteractionOverlay({
           </div>
           <h2>{ramContent.code}</h2>
           <div className="ram-panel-data">
-            <span>MODULE ACTIVE</span>
-            <span>DDR MEMORY</span>
+            <span>{copy.moduleActive}</span>
+            <span>{copy.memory}</span>
           </div>
           <p className="ram-panel-copy">{ramContent.text}</p>
         </aside>
@@ -124,13 +94,13 @@ export function HardwareInteractionOverlay({
 
       {interaction?.kind === "cooler" ? (
         <div
-          aria-label="Sıvı soğutma sistem bilgileri"
+          aria-label={copy.cooling.label}
           aria-modal="true"
           className="cooling-system-view"
           role="dialog"
         >
           <button
-            aria-label="Sistem ekranını kapat"
+            aria-label={copy.closeCooling}
             className="interaction-close cooling-system-close"
             onClick={onClose}
             type="button"
@@ -138,40 +108,37 @@ export function HardwareInteractionOverlay({
             ×
           </button>
           <section className="cooling-system-content">
-            <p>THERMAL SYSTEM / LIVE</p>
-            <h2>SYSTEM MONITOR</h2>
+            <p>{copy.cooling.live}</p>
+            <h2>{copy.cooling.title}</h2>
             <div className="cooling-system-rule" aria-hidden="true" />
             <dl>
               <div>
-                <dt>LOOP</dt>
-                <dd>LIQUID COOLING</dd>
+                <dt>{copy.cooling.loop}</dt>
+                <dd>{copy.cooling.loopValue}</dd>
               </div>
               <div>
-                <dt>STATUS</dt>
-                <dd>ACTIVE</dd>
+                <dt>{copy.cooling.status}</dt>
+                <dd>{copy.cooling.statusValue}</dd>
               </div>
               <div>
-                <dt>PROFILE</dt>
-                <dd>BALANCED</dd>
+                <dt>{copy.cooling.profile}</dt>
+                <dd>{copy.cooling.profileValue}</dd>
               </div>
             </dl>
-            <p className="cooling-system-copy">
-              Sistem bilgileri, canlı değerler ve proje detayları için ayrılmış
-              izleme arayüzü.
-            </p>
+            <p className="cooling-system-copy">{copy.cooling.copy}</p>
           </section>
         </div>
       ) : null}
 
       {ramFocusActive && !interaction ? (
         <button
-          aria-label="RAM focus görünümünden çık"
+          aria-label={copy.returnLabel}
           className="hardware-scene-return ram-focus-return"
           onClick={onRamFocusClose}
           type="button"
         >
           <span aria-hidden="true">←</span>
-          SAHNEYE DÖN
+          {copy.returnToScene}
         </button>
       ) : null}
 
@@ -182,7 +149,7 @@ export function HardwareInteractionOverlay({
           type="button"
         >
           <span aria-hidden="true">←</span>
-          SAHNEYE DÖN
+          {copy.returnToScene}
         </button>
       ) : null}
     </div>

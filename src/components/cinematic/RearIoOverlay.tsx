@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type CSSProperties, type FormEvent } from "react";
+import { UI_COPY, type Locale } from "./i18n";
 import type {
   RearPortHover,
   RearPortId,
@@ -10,6 +11,7 @@ import type {
 type RearIoOverlayProps = {
   contactOpen: boolean;
   hoveredPort: RearPortHover | null;
+  locale: Locale;
   onCloseContact: () => void;
   onOpenContact: () => void;
   onSelectPort: (portId: RearPortId) => void;
@@ -33,14 +35,6 @@ const SOCIAL_PORTS = [
   signal: string;
 }>;
 
-const PORT_LABELS: Record<RearPortId, string> = {
-  contact: "CONTACT CHANNEL",
-  github: "GITHUB UPLINK",
-  instagram: "INSTAGRAM FEED",
-  linkedin: "LINKEDIN NETWORK",
-  x: "X / TWITTER FEED",
-};
-
 function getAnchorStyle(anchor: ScreenAnchor): AnchorStyle {
   return {
     "--anchor-x": `${anchor.x}%`,
@@ -51,17 +45,19 @@ function getAnchorStyle(anchor: ScreenAnchor): AnchorStyle {
 export function RearIoOverlay({
   contactOpen,
   hoveredPort,
+  locale,
   onCloseContact,
   onOpenContact,
   onSelectPort,
   ready,
   selectedPort,
 }: RearIoOverlayProps) {
-  const [formStatus, setFormStatus] = useState("");
+  const [formSubmitted, setFormSubmitted] = useState(false);
+  const copy = UI_COPY[locale].rear;
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    setFormStatus("Gönderim adresi bağlandığında mesajın hazır olacak.");
+    setFormSubmitted(true);
   };
 
   if (!ready) return null;
@@ -73,15 +69,15 @@ export function RearIoOverlay({
       data-ready="true"
     >
       <div className="rear-io-heading">
-        <p>REAR I/O / CONNECTION ARRAY</p>
-        <h2>LET&apos;S CONNECT</h2>
-        <span>Bir porta dokun ve bağlantıyı başlat.</span>
+        <p>{copy.prefix}</p>
+        <h2>{copy.heading}</h2>
+        <span>{copy.instruction}</span>
       </div>
 
-      <nav aria-label="Sosyal medya bağlantıları" className="rear-port-dock">
+      <nav aria-label={copy.navLabel} className="rear-port-dock">
         {SOCIAL_PORTS.map((port, index) => (
           <button
-            aria-label={`${port.label} bağlantısı`}
+            aria-label={copy.portAria(port.label)}
             key={port.id}
             onClick={() => onSelectPort(port.id)}
             style={{ "--port-index": index } as CSSProperties}
@@ -94,14 +90,14 @@ export function RearIoOverlay({
         ))}
         <button onClick={onOpenContact} type="button">
           <span>DIRECT / 05</span>
-          <strong>CONTACT</strong>
+          <strong>{copy.contact}</strong>
           <i aria-hidden="true" />
         </button>
       </nav>
 
       {selectedPort && selectedPort !== "contact" ? (
         <output className="rear-port-status">
-          {PORT_LABELS[selectedPort]} / BAĞLANTI ADRESİ BEKLENİYOR
+          {copy.portLabels[selectedPort]} / {copy.urlPending}
         </output>
       ) : null}
 
@@ -111,20 +107,20 @@ export function RearIoOverlay({
           className="rear-port-hud"
           style={getAnchorStyle(hoveredPort.anchor)}
         >
-          <span>PORT ONLINE</span>
-          <strong>{PORT_LABELS[hoveredPort.id]}</strong>
+          <span>{copy.online}</span>
+          <strong>{copy.portLabels[hoveredPort.id]}</strong>
         </div>
       ) : null}
 
       {contactOpen ? (
         <aside
-          aria-label="İletişim formu"
+          aria-label={copy.contactLabel}
           aria-modal="true"
           className="rear-contact-panel"
           role="dialog"
         >
           <button
-            aria-label="İletişim formunu kapat"
+            aria-label={copy.closeContact}
             className="interaction-close rear-contact-close"
             onClick={onCloseContact}
             type="button"
@@ -132,14 +128,14 @@ export function RearIoOverlay({
             ×
           </button>
           <p>DIRECT CHANNEL / 05</p>
-          <h2>MESAJ GÖNDER</h2>
+          <h2>{copy.contactHeading}</h2>
           <form onSubmit={handleSubmit}>
             <label>
-              <span>ADINIZ</span>
+              <span>{copy.name}</span>
               <input autoComplete="name" name="name" required type="text" />
             </label>
             <label>
-              <span>E-POSTA</span>
+              <span>{copy.email}</span>
               <input
                 autoComplete="email"
                 name="email"
@@ -148,13 +144,15 @@ export function RearIoOverlay({
               />
             </label>
             <label>
-              <span>MESAJ</span>
+              <span>{copy.message}</span>
               <textarea name="message" required rows={5} />
             </label>
             <button className="rear-contact-submit" type="submit">
-              MESAJI HAZIRLA <span aria-hidden="true">↗</span>
+              {copy.send} <span aria-hidden="true">↗</span>
             </button>
-            <output aria-live="polite">{formStatus}</output>
+            <output aria-live="polite">
+              {formSubmitted ? copy.formStatus : ""}
+            </output>
           </form>
         </aside>
       ) : null}

@@ -4,6 +4,7 @@ import { Html, useProgress } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
 import { Suspense, useEffect, useState } from "react";
 import { ACESFilmicToneMapping, SRGBColorSpace } from "three";
+import { UI_COPY, type Locale } from "./i18n";
 import { PcScene } from "./PcScene";
 import type { ProgressSource } from "./scroll-progress";
 import type {
@@ -18,6 +19,7 @@ type PcCanvasProps = {
   hoveredTarget: SceneHover | null;
   interaction: SceneInteraction;
   interactionReady: boolean;
+  locale: Locale;
   onCoolerClick: () => void;
   onGpuClick: () => void;
   onHoverChange: (target: SceneHover | null) => void;
@@ -31,7 +33,7 @@ type PcCanvasProps = {
   rearProgressSource: ProgressSource;
 };
 
-function SceneLoader() {
+function SceneLoader({ locale }: { locale: Locale }) {
   const { active, progress } = useProgress();
   const [fading, setFading] = useState(false);
   const [hidden, setHidden] = useState(false);
@@ -54,7 +56,7 @@ function SceneLoader() {
       center
       className={`model-loader ${fading ? "model-loader-exit" : ""}`}
     >
-      <span>3D SYSTEM</span>
+      <span>{UI_COPY[locale].canvas.loading}</span>
       <strong>{Math.round(progress).toString().padStart(3, "0")}%</strong>
     </Html>
   );
@@ -64,6 +66,7 @@ export function PcCanvas({
   hoveredTarget,
   interaction,
   interactionReady,
+  locale,
   onCoolerClick,
   onGpuClick,
   onHoverChange,
@@ -100,11 +103,11 @@ export function PcCanvas({
       }}
       fallback={
         <div className="webgl-fallback">
-          3D görünüm bu tarayıcıda kullanılamıyor.
+          {UI_COPY[locale].canvas.fallback}
         </div>
       }
     >
-      <Suspense fallback={<SceneLoader />}>
+      <Suspense fallback={<SceneLoader locale={locale} />}>
         <PcScene
           hoveredTarget={hoveredTarget}
           interaction={interaction}

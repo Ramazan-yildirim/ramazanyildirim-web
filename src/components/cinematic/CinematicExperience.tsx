@@ -5,9 +5,17 @@ import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import dynamic from "next/dynamic";
 import Image from "next/image";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import heroLogo from "../../../RamazanYildirim_Logo.png";
 import { HardwareInteractionOverlay } from "./HardwareInteractionOverlay";
+import { UI_COPY, type Locale } from "./i18n";
 import { RearIoOverlay } from "./RearIoOverlay";
 import { createProgressSource, range } from "./scroll-progress";
 import type {
@@ -24,7 +32,7 @@ const PcCanvas = dynamic(
     ssr: false,
     loading: () => (
       <div className="canvas-boot" aria-live="polite">
-        3D sahne hazırlanıyor
+        3D
       </div>
     ),
   },
@@ -35,6 +43,53 @@ gsap.registerPlugin(ScrollTrigger, useGSAP);
 const HARDWARE_INTERACTION_START = 0.92;
 const MAIN_SEQUENCE_END = 520 / 720;
 const REAR_INTERACTION_START = 0.96;
+const LOCALE_STORAGE_KEY = "portfolio-locale-v1";
+const LOCALE_CHANGE_EVENT = "portfolio-locale-change";
+let localeOverride: Locale | null = null;
+
+function getStoredLocale(): Locale {
+  if (localeOverride) return localeOverride;
+
+  try {
+    const savedLocale = window.localStorage.getItem(LOCALE_STORAGE_KEY);
+    return savedLocale === "en" ? "en" : "tr";
+  } catch {
+    return "tr";
+  }
+}
+
+function getServerLocale(): Locale {
+  return "tr";
+}
+
+function subscribeToLocale(onStoreChange: () => void) {
+  const handleLocaleChange = () => onStoreChange();
+  const handleStorage = (event: StorageEvent) => {
+    if (event.key !== LOCALE_STORAGE_KEY) return;
+    localeOverride = null;
+    onStoreChange();
+  };
+
+  window.addEventListener(LOCALE_CHANGE_EVENT, handleLocaleChange);
+  window.addEventListener("storage", handleStorage);
+
+  return () => {
+    window.removeEventListener(LOCALE_CHANGE_EVENT, handleLocaleChange);
+    window.removeEventListener("storage", handleStorage);
+  };
+}
+
+function updateLocale(nextLocale: Locale) {
+  localeOverride = nextLocale;
+
+  try {
+    window.localStorage.setItem(LOCALE_STORAGE_KEY, nextLocale);
+  } catch {
+    // The in-memory selection still works when storage is unavailable.
+  }
+
+  window.dispatchEvent(new Event(LOCALE_CHANGE_EVENT));
+}
 
 function getPhase(progress: number, rearProgress: number) {
   if (rearProgress > 0.01) return "rear";
@@ -58,6 +113,11 @@ export function CinematicExperience() {
   const [selectedRearPort, setSelectedRearPort] =
     useState<RearPortId | null>(null);
   const [ramFocusActive, setRamFocusActive] = useState(false);
+  const locale = useSyncExternalStore(
+    subscribeToLocale,
+    getStoredLocale,
+    getServerLocale,
+  );
   const interactionReadyRef = useRef(false);
   const rearInteractionReadyRef = useRef(false);
   const closeInteraction = useCallback(() => setInteraction(null), []);
@@ -91,6 +151,13 @@ export function CinematicExperience() {
     setSelectedRearPort(portId);
     if (portId === "contact") setContactOpen(true);
   }, []);
+  const handleLocaleChange = useCallback((nextLocale: Locale) => {
+    updateLocale(nextLocale);
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.lang = locale;
+  }, [locale]);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -230,6 +297,7 @@ export function CinematicExperience() {
       ref={rootRef}
       className="cinematic-scroll"
       data-interaction={interaction?.kind ?? "none"}
+      data-locale={locale}
       data-phase="focus"
     >
       <div className="cinematic-viewport" style={{ position: "fixed" }}>
@@ -237,6 +305,7 @@ export function CinematicExperience() {
           hoveredTarget={hoveredTarget}
           interaction={interaction}
           interactionReady={interactionReady}
+          locale={locale}
           onCoolerClick={handleCoolerClick}
           onGpuClick={handleGpuClick}
           onHoverChange={handleHoverChange}
@@ -253,12 +322,30 @@ export function CinematicExperience() {
         <div className="cinematic-shade" aria-hidden="true" />
         <div className="cinematic-vignette" aria-hidden="true" />
 
+        <div
+          aria-label={UI_COPY[locale].language.label}
+          className="language-switcher"
+          role="group"
+        >
+          {(["tr", "en"] as const).map((language) => (
+            <button
+              aria-label={UI_COPY[locale].language[language]}
+              aria-pressed={locale === language}
+              key={language}
+              onClick={() => handleLocaleChange(language)}
+              type="button"
+            >
+              {language.toUpperCase()}
+            </button>
+          ))}
+        </div>
+
         <div className="cinematic-overlays" id="top">
           <div className="hero-brand-logo">
             <Image
               alt="Ramazan Yıldırım"
               priority
-              sizes="(max-width: 760px) 88px, 8vw"
+              sizes="(max-width: 760px) 44px, 4vw"
               src={heroLogo}
             />
           </div>
@@ -273,33 +360,33 @@ export function CinematicExperience() {
 
           <section className="cinematic-copy-scene reveal-copy">
             <h2>
-              INSIDE
+              {UI_COPY[locale].hero.reveal[0]}
               <br />
-              THE MACHINE
+              {UI_COPY[locale].hero.reveal[1]}
             </h2>
           </section>
 
           <section className="cinematic-copy-scene assembly-copy">
             <h2>
-              PRECISION
+              {UI_COPY[locale].hero.assembly[0]}
               <br />
-              IN MOTION
+              {UI_COPY[locale].hero.assembly[1]}
             </h2>
           </section>
 
           <section className="cinematic-copy-scene complete-copy">
             <h2>
-              BUILT TO
+              {UI_COPY[locale].hero.complete[0]}
               <br />
-              THINK
+              {UI_COPY[locale].hero.complete[1]}
             </h2>
             <div
               aria-hidden={!interactionReady}
               className="component-selector"
               data-ready={interactionReady ? "true" : "false"}
             >
-              <span>SELECT A COMPONENT</span>
-              <strong>RAM · COOLING · GPU</strong>
+              <span>{UI_COPY[locale].hero.selector}</span>
+              <strong>{UI_COPY[locale].hero.selectorItems}</strong>
             </div>
           </section>
         </div>
@@ -308,6 +395,7 @@ export function CinematicExperience() {
           hoveredTarget={hoveredTarget}
           interaction={interaction}
           interactionReady={interactionReady}
+          locale={locale}
           onClose={closeInteraction}
           onRamFocusClose={closeRamFocus}
           ramFocusActive={ramFocusActive}
@@ -315,6 +403,7 @@ export function CinematicExperience() {
         <RearIoOverlay
           contactOpen={contactOpen}
           hoveredPort={hoveredRearPort}
+          locale={locale}
           onCloseContact={() => setContactOpen(false)}
           onOpenContact={() => setContactOpen(true)}
           onSelectPort={handleRearPortClick}
