@@ -52,13 +52,14 @@ a {
   --reveal-copy-opacity: 0;
   --assembly-opacity: 0;
   --complete-opacity: 0;
+  --rear-opacity: 0;
   --scene-shade: 0.92;
   position: relative;
   width: 100%;
 }
 
 .cinematic-spacer {
-  height: 520vh;
+  height: 720vh;
   pointer-events: none;
 }
 
@@ -918,6 +919,261 @@ a {
   animation-delay: 0.15s;
 }
 
+.rear-io-layer {
+  position: absolute;
+  z-index: 14;
+  inset: 0;
+  opacity: var(--rear-opacity);
+  pointer-events: none;
+  transition: opacity 0.2s linear;
+}
+
+.cinematic-scroll[data-phase="rear"] .cinematic-shade {
+  background:
+    linear-gradient(90deg, rgba(2, 3, 4, 0.72), transparent 42% 64%, rgba(2, 3, 4, 0.66)),
+    linear-gradient(180deg, rgba(2, 3, 4, 0.45), transparent 28% 72%, rgba(2, 3, 4, 0.72));
+}
+
+.rear-io-heading {
+  position: absolute;
+  top: clamp(28px, 7vh, 78px);
+  left: clamp(22px, 5vw, 78px);
+  max-width: min(500px, 42vw);
+  transform: translateY(calc((1 - var(--rear-opacity)) * 18px));
+}
+
+.rear-io-heading p,
+.rear-contact-panel > p {
+  margin: 0 0 12px;
+  color: var(--accent);
+  font-family: "Courier New", monospace;
+  font-size: 9px;
+  letter-spacing: 0.2em;
+}
+
+.rear-io-heading h2,
+.rear-contact-panel h2 {
+  margin: 0;
+  font-size: clamp(34px, 5.2vw, 76px);
+  font-weight: 600;
+  letter-spacing: -0.045em;
+  line-height: 0.94;
+}
+
+.rear-io-heading > span {
+  display: block;
+  margin-top: 14px;
+  color: rgba(239, 246, 248, 0.45);
+  font-family: "Courier New", monospace;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+}
+
+.rear-port-dock {
+  position: absolute;
+  right: clamp(22px, 5vw, 76px);
+  bottom: clamp(26px, 6vh, 66px);
+  display: grid;
+  width: min(360px, calc(100vw - 44px));
+  border-top: 1px solid rgba(156, 232, 246, 0.2);
+}
+
+.rear-io-layer[data-ready="true"] .rear-port-dock,
+.rear-io-layer[data-ready="true"] .rear-contact-panel {
+  pointer-events: auto;
+}
+
+.rear-port-dock button {
+  position: relative;
+  display: grid;
+  grid-template-columns: 92px 1fr 20px;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  padding: 12px 10px;
+  border: 0;
+  border-bottom: 1px solid rgba(239, 246, 248, 0.1);
+  background: rgba(3, 7, 9, 0.46);
+  color: rgba(239, 246, 248, 0.68);
+  text-align: left;
+  cursor: pointer;
+  opacity: 0;
+  transform: translateX(16px);
+  animation: rear-port-in 0.45s ease calc(var(--port-index, 4) * 0.07s) forwards;
+  backdrop-filter: blur(8px);
+}
+
+.rear-port-dock button:hover,
+.rear-port-dock button:focus-visible {
+  background: rgba(156, 232, 246, 0.08);
+  color: #fff;
+  outline: none;
+}
+
+.rear-port-dock button span {
+  color: rgba(156, 232, 246, 0.55);
+  font-family: "Courier New", monospace;
+  font-size: 8px;
+  letter-spacing: 0.12em;
+}
+
+.rear-port-dock button strong {
+  font-family: var(--font-tech), sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.13em;
+}
+
+.rear-port-dock button i {
+  width: 7px;
+  height: 7px;
+  border: 1px solid var(--accent);
+  border-radius: 50%;
+  box-shadow: 0 0 10px rgba(156, 232, 246, 0.25);
+}
+
+.rear-port-hud {
+  position: absolute;
+  top: clamp(88px, calc(var(--anchor-y) - 24px), calc(100% - 100px));
+  left: clamp(18px, calc(var(--anchor-x) + 22px), calc(100% - 200px));
+  display: grid;
+  gap: 4px;
+  min-width: 178px;
+  padding: 9px 12px;
+  border-left: 1px solid rgba(156, 232, 246, 0.66);
+  background: linear-gradient(90deg, rgba(3, 8, 10, 0.82), transparent);
+  font-family: "Courier New", monospace;
+  animation: component-hud-in 0.28s ease forwards;
+  backdrop-filter: blur(7px);
+}
+
+.rear-port-hud span {
+  color: rgba(156, 232, 246, 0.58);
+  font-size: 7px;
+  letter-spacing: 0.16em;
+}
+
+.rear-port-hud strong {
+  color: rgba(239, 246, 248, 0.86);
+  font-size: 9px;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+}
+
+.rear-port-status {
+  position: absolute;
+  right: clamp(22px, 5vw, 76px);
+  bottom: clamp(250px, 34vh, 318px);
+  color: rgba(156, 232, 246, 0.62);
+  font-family: "Courier New", monospace;
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  animation: component-hud-in 0.28s ease forwards;
+}
+
+.rear-contact-panel {
+  position: absolute;
+  top: 50%;
+  right: clamp(22px, 6vw, 96px);
+  width: min(440px, calc(100vw - 44px));
+  padding: 34px;
+  border: 1px solid rgba(156, 232, 246, 0.24);
+  background: rgba(3, 7, 9, 0.88);
+  transform: translateY(-50%);
+  animation: rear-contact-in 0.55s ease both;
+  backdrop-filter: blur(18px);
+}
+
+.rear-contact-panel h2 {
+  font-size: clamp(32px, 4vw, 54px);
+}
+
+.rear-contact-close {
+  top: 18px;
+  right: 18px;
+}
+
+.rear-contact-panel form {
+  display: grid;
+  gap: 14px;
+  margin-top: 28px;
+}
+
+.rear-contact-panel label {
+  display: grid;
+  gap: 6px;
+}
+
+.rear-contact-panel label span {
+  color: rgba(239, 246, 248, 0.45);
+  font-family: "Courier New", monospace;
+  font-size: 8px;
+  letter-spacing: 0.15em;
+}
+
+.rear-contact-panel input,
+.rear-contact-panel textarea {
+  width: 100%;
+  border: 1px solid rgba(239, 246, 248, 0.12);
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.025);
+  color: #f2f5f6;
+  font: 400 13px/1.5 var(--font-tech), sans-serif;
+  outline: none;
+  padding: 10px 12px;
+  resize: vertical;
+}
+
+.rear-contact-panel input:focus,
+.rear-contact-panel textarea:focus {
+  border-color: rgba(156, 232, 246, 0.54);
+}
+
+.rear-contact-submit {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border: 1px solid rgba(156, 232, 246, 0.35);
+  background: rgba(156, 232, 246, 0.08);
+  color: var(--accent);
+  font-family: "Courier New", monospace;
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  cursor: pointer;
+}
+
+.rear-contact-panel output {
+  min-height: 1em;
+  color: rgba(239, 246, 248, 0.48);
+  font-family: "Courier New", monospace;
+  font-size: 8px;
+  letter-spacing: 0.08em;
+}
+
+.rear-io-layer[data-contact-open="true"] .rear-io-heading,
+.rear-io-layer[data-contact-open="true"] .rear-port-dock {
+  opacity: 0.16;
+}
+
+@keyframes rear-port-in {
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes rear-contact-in {
+  from {
+    opacity: 0;
+    transform: translate(24px, -50%);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(0, -50%);
+  }
+}
+
 @keyframes hardware-panel-in {
   from {
     opacity: 0;
@@ -967,7 +1223,7 @@ a {
 
 @media (max-width: 760px) {
   .cinematic-spacer {
-    height: 450vh;
+    height: 620vh;
   }
 
   .cinematic-header {
@@ -1105,6 +1361,58 @@ a {
   .hardware-scene-return {
     right: 20px;
     bottom: 72px;
+  }
+
+  .rear-io-heading {
+    top: 24px;
+    left: 20px;
+    max-width: calc(100vw - 40px);
+  }
+
+  .rear-io-heading h2 {
+    font-size: clamp(34px, 11vw, 52px);
+  }
+
+  .rear-io-heading > span {
+    display: none;
+  }
+
+  .rear-port-dock {
+    right: 18px;
+    bottom: 20px;
+    width: calc(100vw - 36px);
+  }
+
+  .rear-port-dock button {
+    grid-template-columns: 78px 1fr 16px;
+    padding: 9px 10px;
+  }
+
+  .rear-port-hud {
+    display: none;
+  }
+
+  .rear-port-status {
+    right: 20px;
+    bottom: 245px;
+    max-width: calc(100vw - 40px);
+    text-align: right;
+  }
+
+  .rear-contact-panel {
+    top: auto;
+    right: 18px;
+    bottom: 18px;
+    width: calc(100vw - 36px);
+    max-height: calc(100svh - 36px);
+    padding: 28px 22px 22px;
+    overflow-y: auto;
+    transform: none;
+    animation-name: ram-module-open-mobile;
+  }
+
+  .rear-contact-panel form {
+    margin-top: 20px;
   }
 }
 

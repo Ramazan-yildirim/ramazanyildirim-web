@@ -6,8 +6,11 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { HardwareInteractionOverlay } from "./HardwareInteractionOverlay";
+import { RearIoOverlay } from "./RearIoOverlay";
 import { createProgressSource, range } from "./scroll-progress";
 import type {
+  RearPortHover,
+  RearPortId,
   SceneHover,
   SceneInteraction,
   ScreenAnchor,
@@ -28,8 +31,11 @@ const PcCanvas = dynamic(
 gsap.registerPlugin(ScrollTrigger, useGSAP);
 
 const HARDWARE_INTERACTION_START = 0.92;
+const MAIN_SEQUENCE_END = 520 / 720;
+const REAR_INTERACTION_START = 0.96;
 
-function getPhase(progress: number) {
+function getPhase(progress: number, rearProgress: number) {
+  if (rearProgress > 0.01) return "rear";
   if (progress < 0.18) return "focus";
   if (progress < 0.4) return "reveal";
   if (progress < 0.9) return "assembly";
@@ -39,11 +45,19 @@ function getPhase(progress: number) {
 export function CinematicExperience() {
   const rootRef = useRef<HTMLElement>(null);
   const progressSource = useMemo(() => createProgressSource(), []);
+  const rearProgressSource = useMemo(() => createProgressSource(), []);
   const [interaction, setInteraction] = useState<SceneInteraction>(null);
   const [hoveredTarget, setHoveredTarget] = useState<SceneHover | null>(null);
+  const [hoveredRearPort, setHoveredRearPort] =
+    useState<RearPortHover | null>(null);
   const [interactionReady, setInteractionReady] = useState(false);
+  const [rearInteractionReady, setRearInteractionReady] = useState(false);
+  const [contactOpen, setContactOpen] = useState(false);
+  const [selectedRearPort, setSelectedRearPort] =
+    useState<RearPortId | null>(null);
   const [ramFocusActive, setRamFocusActive] = useState(false);
   const interactionReadyRef = useRef(false);
+  const rearInteractionReadyRef = useRef(false);
   const closeInteraction = useCallback(() => setInteraction(null), []);
   const closeRamFocus = useCallback(() => {
     setHoveredTarget(null);
@@ -70,12 +84,19 @@ export function CinematicExperience() {
     setRamFocusActive(false);
     setInteraction({ kind: "gpu" });
   }, []);
+  const handleRearPortClick = useCallback((portId: RearPortId) => {
+    setHoveredRearPort(null);
+    setSelectedRearPort(portId);
+    if (portId === "contact") setContactOpen(true);
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       if (interaction) {
         closeInteraction();
+      } else if (contactOpen) {
+        setContactOpen(false);
       } else {
         closeRamFocus();
       }
@@ -83,7 +104,7 @@ export function CinematicExperience() {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [closeInteraction, closeRamFocus, interaction]);
+  }, [closeInteraction, closeRamFocus, contactOpen, interaction]);
 
   useGSAP(
     () => {
@@ -97,25 +118,38 @@ export function CinematicExperience() {
 
       if (prefersReducedMotion) {
         progressSource.set(1);
-        interactionReadyRef.current = true;
-        setInteractionReady(true);
-        root.dataset.phase = "complete";
-        root.style.setProperty("--hero-opacity", "1");
+        rearProgressSource.set(1);
+        rearInteractionReadyRef.current = true;
+        setRearInteractionReady(true);
+        root.dataset.phase = "rear";
+        root.style.setProperty("--hero-opacity", "0");
+        root.style.setProperty("--complete-opacity", "0");
+        root.style.setProperty("--rear-opacity", "1");
         root.style.setProperty("--scene-shade", "0.18");
         return;
       }
 
       const driver = { value: 0 };
       const updateDocument = () => {
-        const progress = driver.value;
+        const progress = Math.min(1, driver.value / MAIN_SEQUENCE_END);
+        const rearProgress = range(
+          driver.value,
+          MAIN_SEQUENCE_END,
+          1,
+        );
         const heroOpacity = 1 - range(progress, 0.08, 0.24);
         const revealCopyOpacity =
           range(progress, 0.2, 0.29) * (1 - range(progress, 0.39, 0.48));
         const assemblyOpacity =
           range(progress, 0.43, 0.53) * (1 - range(progress, 0.82, 0.92));
-        const completeOpacity = range(progress, 0.9, 0.98);
-        const sceneShade = 0.92 - range(progress, 0.1, 0.32) * 0.72;
-        const nextInteractionReady = progress >= HARDWARE_INTERACTION_START;
+        const completeOpacity =
+          range(progress, 0.9, 0.98) * (1 - range(rearProgress, 0, 0.2));
+        const sceneShade =
+          0.92 - range(progress, 0.1, 0.32) * 0.72 + rearProgress * 0.06;
+        const nextInteractionReady =
+          progress >= HARDWARE_INTERACTION_START && rearProgress < 0.01;
+        const nextRearInteractionReady =
+          rearProgress >= REAR_INTERACTION_START;
 
         if (nextInteractionReady !== interactionReadyRef.current) {
           interactionReadyRef.current = nextInteractionReady;
@@ -127,8 +161,21 @@ export function CinematicExperience() {
           }
         }
 
+        if (
+          nextRearInteractionReady !== rearInteractionReadyRef.current
+        ) {
+          rearInteractionReadyRef.current = nextRearInteractionReady;
+          setRearInteractionReady(nextRearInteractionReady);
+          if (!nextRearInteractionReady) {
+            setHoveredRearPort(null);
+            setContactOpen(false);
+            setSelectedRearPort(null);
+          }
+        }
+
         progressSource.set(progress);
-        root.dataset.phase = getPhase(progress);
+        rearProgressSource.set(rearProgress);
+        root.dataset.phase = getPhase(progress, rearProgress);
         root.style.setProperty("--hero-opacity", heroOpacity.toFixed(4));
         root.style.setProperty(
           "--reveal-copy-opacity",
@@ -141,6 +188,10 @@ export function CinematicExperience() {
         root.style.setProperty(
           "--complete-opacity",
           completeOpacity.toFixed(4),
+        );
+        root.style.setProperty(
+          "--rear-opacity",
+          range(rearProgress, 0.68, 0.9).toFixed(4),
         );
         root.style.setProperty("--scene-shade", sceneShade.toFixed(4));
       };
@@ -166,7 +217,10 @@ export function CinematicExperience() {
         tween.kill();
       };
     },
-    { scope: rootRef, dependencies: [progressSource] },
+    {
+      scope: rootRef,
+      dependencies: [progressSource, rearProgressSource],
+    },
   );
 
   return (
@@ -186,8 +240,12 @@ export function CinematicExperience() {
           onHoverChange={handleHoverChange}
           onRamFocusChange={setRamFocusActive}
           onRamClick={handleRamClick}
+          onRearPortClick={handleRearPortClick}
+          onRearPortHoverChange={setHoveredRearPort}
           progressSource={progressSource}
           ramFocusActive={ramFocusActive}
+          rearInteractionReady={rearInteractionReady}
+          rearProgressSource={rearProgressSource}
         />
 
         <div className="cinematic-shade" aria-hidden="true" />
@@ -242,6 +300,15 @@ export function CinematicExperience() {
           onClose={closeInteraction}
           onRamFocusClose={closeRamFocus}
           ramFocusActive={ramFocusActive}
+        />
+        <RearIoOverlay
+          contactOpen={contactOpen}
+          hoveredPort={hoveredRearPort}
+          onCloseContact={() => setContactOpen(false)}
+          onOpenContact={() => setContactOpen(true)}
+          onSelectPort={handleRearPortClick}
+          ready={rearInteractionReady}
+          selectedPort={selectedRearPort}
         />
       </div>
 

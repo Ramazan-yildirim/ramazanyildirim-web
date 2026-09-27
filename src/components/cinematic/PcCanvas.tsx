@@ -7,6 +7,8 @@ import { ACESFilmicToneMapping, SRGBColorSpace } from "three";
 import { PcScene } from "./PcScene";
 import type { ProgressSource } from "./scroll-progress";
 import type {
+  RearPortHover,
+  RearPortId,
   SceneHover,
   SceneInteraction,
   ScreenAnchor,
@@ -21,8 +23,12 @@ type PcCanvasProps = {
   onHoverChange: (target: SceneHover | null) => void;
   onRamFocusChange: (active: boolean) => void;
   onRamClick: (ramIndex: number, anchor: ScreenAnchor) => void;
+  onRearPortClick: (portId: RearPortId) => void;
+  onRearPortHoverChange: (target: RearPortHover | null) => void;
   progressSource: ProgressSource;
   ramFocusActive: boolean;
+  rearInteractionReady: boolean;
+  rearProgressSource: ProgressSource;
 };
 
 function SceneLoader() {
@@ -63,8 +69,12 @@ export function PcCanvas({
   onHoverChange,
   onRamFocusChange,
   onRamClick,
+  onRearPortClick,
+  onRearPortHoverChange,
   progressSource,
   ramFocusActive,
+  rearInteractionReady,
+  rearProgressSource,
 }: PcCanvasProps) {
   return (
     <Canvas
@@ -104,8 +114,12 @@ export function PcCanvas({
           onHoverChange={onHoverChange}
           onRamFocusChange={onRamFocusChange}
           onRamClick={onRamClick}
+          onRearPortClick={onRearPortClick}
+          onRearPortHoverChange={onRearPortHoverChange}
           progressSource={progressSource}
           ramFocusActive={ramFocusActive}
+          rearInteractionReady={rearInteractionReady}
+          rearProgressSource={rearProgressSource}
         />
       </Suspense>
     </Canvas>

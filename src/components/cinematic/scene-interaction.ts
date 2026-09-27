@@ -15,3 +15,15 @@ export type SceneInteraction =
   | { kind: "cooler" }
   | { kind: "gpu" }
   | null;
+
+export type RearPortId =
+  | "github"
+  | "linkedin"
+  | "instagram"
+  | "x"
+  | "contact";
+
+export type RearPortHover = {
+  anchor: ScreenAnchor;
+  id: RearPortId;
+};

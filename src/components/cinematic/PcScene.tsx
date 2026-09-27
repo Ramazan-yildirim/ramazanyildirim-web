@@ -30,6 +30,8 @@ import {
 } from "three";
 import { range, type ProgressSource } from "./scroll-progress";
 import type {
+  RearPortHover,
+  RearPortId,
   SceneComponentTarget,
   SceneHover,
   SceneInteraction,
@@ -65,8 +67,12 @@ type PcSceneProps = {
   onHoverChange: (target: SceneHover | null) => void;
   onRamFocusChange: (active: boolean) => void;
   onRamClick: (ramIndex: number, anchor: ScreenAnchor) => void;
+  onRearPortClick: (portId: RearPortId) => void;
+  onRearPortHoverChange: (target: RearPortHover | null) => void;
   progressSource: ProgressSource;
   ramFocusActive: boolean;
+  rearInteractionReady: boolean;
+  rearProgressSource: ProgressSource;
 };
 
 type InteractionHitboxProps = {
@@ -76,6 +82,15 @@ type InteractionHitboxProps = {
   position: [number, number, number];
   size: [number, number, number];
   target: SceneComponentTarget;
+};
+
+type RearPortHitboxProps = {
+  enabled: boolean;
+  onActivate: (portId: RearPortId) => void;
+  onHoverChange: (target: RearPortHover | null) => void;
+  portId: RearPortId;
+  position: [number, number, number];
+  size: [number, number, number];
 };
 
 type ObjectTransform = {
@@ -146,6 +161,64 @@ function InteractionHitbox({
         onHoverChange({
           ...target,
           anchor: getScreenAnchor(event.object),
+        });
+      }}
+      position={position}
+      visible={enabled}
+    >
+      <boxGeometry args={size} />
+      <meshBasicMaterial
+        colorWrite={false}
+        depthWrite={false}
+        opacity={0}
+        transparent
+      />
+    </mesh>
+  );
+}
+
+function RearPortHitbox({
+  enabled,
+  onActivate,
+  onHoverChange,
+  portId,
+  position,
+  size,
+}: RearPortHitboxProps) {
+  const { camera } = useThree();
+
+  useEffect(() => {
+    if (!enabled) document.body.style.cursor = "";
+    return () => {
+      document.body.style.cursor = "";
+    };
+  }, [enabled]);
+
+  const getScreenAnchor = (object: Object3D): ScreenAnchor => {
+    const projected = object.getWorldPosition(new Vector3()).project(camera);
+    return {
+      x: Math.max(3, Math.min(97, (projected.x * 0.5 + 0.5) * 100)),
+      y: Math.max(3, Math.min(97, (-projected.y * 0.5 + 0.5) * 100)),
+    };
+  };
+
+  return (
+    <mesh
+      onClick={(event) => {
+        event.stopPropagation();
+        if (enabled) onActivate(portId);
+      }}
+      onPointerOut={() => {
+        document.body.style.cursor = "";
+        onHoverChange(null);
+      }}
+      onPointerOver={(event) => {
+        event.stopPropagation();
+        if (!enabled) return;
+        document.body.style.cursor = "pointer";
+        onHoverChange({
+          anchor: getScreenAnchor(event.object),
+          id: portId,
         });
       }}
       position={position}
@@ -1597,8 +1670,12 @@ export function PcScene({
   onHoverChange,
   onRamFocusChange,
   onRamClick,
+  onRearPortClick,
+  onRearPortHoverChange,
   progressSource,
   ramFocusActive,
+  rearInteractionReady,
+  rearProgressSource,
 }: PcSceneProps) {
   const gltf = useGLTF(MODEL_URL);
   const preparedModel = useMemo(() => {
@@ -1803,15 +1880,56 @@ export function PcScene({
       .filter((part): part is Object3D => Boolean(part));
     const gpuCable = gpuParts.find((part) => part.name === "GPU_KABLO");
     const chassis = model.getObjectByName("ANAKASA");
+    const mainRearPorts = Array.from({ length: 12 }, (_, index) =>
+      model.getObjectByName(`PORT_${index + 1}`),
+    ).filter((part): part is Object3D => Boolean(part));
+    const lowerRearPorts = Array.from({ length: 5 }, (_, index) =>
+      model.getObjectByName(`ALT_PORT_${index + 1}`),
+    ).filter((part): part is Object3D => Boolean(part));
 
     if (
       !chassis ||
       !gpuCable ||
       ramParts.length !== 4 ||
-      gpuParts.length !== 5
+      gpuParts.length !== 5 ||
+      mainRearPorts.length !== 12 ||
+      lowerRearPorts.length !== 5
     ) {
       throw new Error("Interactive PC model parts could not be found.");
     }
+    const createRearPortTarget = (
+      id: RearPortId,
+      parts: Object3D[],
+    ) => {
+      const bounds = new Box3();
+      parts.forEach((part) => bounds.expandByObject(part));
+      const center = bounds.getCenter(new Vector3()).sub(wholeCenter);
+      const partSize = bounds.getSize(new Vector3());
+
+      return {
+        id,
+        position: center.toArray() as [number, number, number],
+        size: [
+          Math.max(partSize.x * 1.45, 0.018),
+          Math.max(partSize.y * 1.55, 0.014),
+          Math.max(partSize.z * 1.35, 0.018),
+        ] as [number, number, number],
+      };
+    };
+    const rearPortTargets = [
+      createRearPortTarget("github", mainRearPorts.slice(0, 3)),
+      createRearPortTarget("linkedin", mainRearPorts.slice(3, 5)),
+      createRearPortTarget("instagram", mainRearPorts.slice(5, 8)),
+      createRearPortTarget("x", mainRearPorts.slice(8, 12)),
+      createRearPortTarget("contact", lowerRearPorts),
+    ];
+    const rearPortBounds = new Box3();
+    [...mainRearPorts, ...lowerRearPorts].forEach((part) =>
+      rearPortBounds.expandByObject(part),
+    );
+    const rearPortCenter = rearPortBounds
+      .getCenter(new Vector3())
+      .sub(wholeCenter);
     gpuCable.traverse((object) => {
       object.visible = true;
       if (!(object instanceof Mesh)) return;
@@ -2131,6 +2249,8 @@ export function PcScene({
       ramHighlightMaterials,
       ramParts,
       ramTargets,
+      rearPortCenter,
+      rearPortTargets,
       recomputeGpuCableNormals: gpuCableDeformer.recomputeNormals,
       updateGpuCableDeformation,
       wholeCenter,
@@ -2234,6 +2354,24 @@ export function PcScene({
     const motherboardTarget = cpuPosition.clone();
     const fullPosition = new Vector3(rigX, rigY, mobile ? 15.5 : 9.6);
     const fullTarget = new Vector3(rigX, rigY, 0);
+    const rearPortTarget = setup.rearPortCenter
+      .clone()
+      .multiplyScalar(MODEL_SCALE)
+      .add(new Vector3(rigX, rigY, 0));
+    const rearOrbitControl = new Vector3(
+      mobile ? -4.8 : -4.2,
+      rearPortTarget.y + (mobile ? 1.5 : 2.3),
+      mobile ? 5.4 : 5.8,
+    );
+    const rearOverviewPosition = rearPortTarget
+      .clone()
+      .add(new Vector3(mobile ? -7.2 : -6.2, 0.4, mobile ? 0.45 : 0.65));
+    const rearCloseTarget = rearPortTarget
+      .clone()
+      .add(new Vector3(0, mobile ? 0.4 : 0.5, mobile ? -0.12 : -0.18));
+    const rearClosePosition = rearCloseTarget
+      .clone()
+      .add(new Vector3(mobile ? -3.4 : -2.95, 0, 0));
     finalCameraStateRef.current.position.copy(fullPosition);
     finalCameraStateRef.current.target.copy(fullTarget);
     finalCameraStateRef.current.topDistance = mobile ? 5.2 : 4.2;
@@ -2254,6 +2392,7 @@ export function PcScene({
 
     const applyProgress = (progress: number) => {
       lastProgressRef.current = progress;
+      const rearProgress = rearProgressSource.get();
       const effectiveIntro = Math.max(
         introRef.current,
         Math.min(1, progress * 10),
@@ -2301,7 +2440,7 @@ export function PcScene({
         setup.motherboardBackdropFadeMaterials,
         motherboardBackdropOpacity,
       );
-      applyMaterialFade(setup.chassisFadeMaterials, chassisOpacity, false);
+      applyMaterialFade(setup.chassisFadeMaterials, chassisOpacity);
       applyMaterialFade(setup.earlyCaseFadeMaterials, earlyCaseOpacity);
       applyMaterialFade(setup.caseFadeMaterials, caseOpacity);
       applyMaterialFade(setup.coolingFadeMaterials, coolingOpacity);
@@ -2321,7 +2460,7 @@ export function PcScene({
             : progress < 0.43
               ? cameraHoldPosition.clone()
               : mixVector(cameraHoldPosition, fullPosition, caseReveal);
-      const cameraTarget =
+      let cameraTarget =
         progress < 0.14
           ? mixVector(introTarget, approachTarget, approach)
           : progress < 0.29
@@ -2335,7 +2474,28 @@ export function PcScene({
         cameraPosition.z += (1 - effectiveIntro) * (mobile ? 0.4 : 0.3);
       }
 
+      if (rearProgress > 0.001) {
+        const orbitAmount = range(rearProgress, 0, 0.72);
+        const rearApproach = range(rearProgress, 0.68, 1);
+        const orbitPosition = curveVector(
+          fullPosition,
+          rearOrbitControl,
+          rearOverviewPosition,
+          orbitAmount,
+        );
+
+        cameraPosition
+          .copy(orbitPosition)
+          .lerp(rearClosePosition, rearApproach);
+        cameraTarget = mixVector(
+          fullTarget,
+          rearPortTarget,
+          range(rearProgress, 0.04, 0.7),
+        ).lerp(rearCloseTarget, rearApproach);
+      }
+
       const interactionOwnsCamera =
+        rearProgress < 0.001 &&
         progress >= HARDWARE_INTERACTION_START &&
         (Boolean(interactionKindRef.current) ||
           ramCameraAmountRef.current.value > 0.001 ||
@@ -2348,12 +2508,14 @@ export function PcScene({
         camera.lookAt(cameraTarget);
 
         if (camera instanceof PerspectiveCamera) {
-          const viewOffset = mobile
+          const baseViewOffset = mobile
             ? 0
             : -size.width *
               (0.23 * (1 - motherboardReveal) +
                 0.08 * motherboardReveal * (1 - caseReveal) +
                 0.105 * caseReveal);
+          const viewOffset =
+            baseViewOffset * (1 - range(rearProgress, 0, 0.18));
 
           if (Math.abs(viewOffset) > 0.5) {
             camera.setViewOffset(
@@ -2429,13 +2591,22 @@ export function PcScene({
     updateSceneRef.current = applyProgress;
     applyProgress(progressSource.get());
 
-    return progressSource.subscribe(applyProgress);
+    const unsubscribeProgress = progressSource.subscribe(applyProgress);
+    const unsubscribeRearProgress = rearProgressSource.subscribe(() => {
+      applyProgress(progressSource.get());
+    });
+
+    return () => {
+      unsubscribeProgress();
+      unsubscribeRearProgress();
+    };
   }, [
     camera,
     cpuCloudMaterial,
     cpuFaceMaterial,
     invalidate,
     progressSource,
+    rearProgressSource,
     setup,
     size.height,
     size.width,
@@ -3015,6 +3186,17 @@ export function PcScene({
           size={setup.gpuTarget.size}
           target={{ kind: "gpu" }}
         />
+        {setup.rearPortTargets.map((target) => (
+          <RearPortHitbox
+            enabled={rearInteractionReady}
+            key={`rear-port-${target.id}`}
+            onActivate={onRearPortClick}
+            onHoverChange={onRearPortHoverChange}
+            portId={target.id}
+            position={target.position}
+            size={target.size}
+          />
+        ))}
         <group ref={cpuGroupRef} position={setup.localCpuCenter}>
           <group position={setup.cpuMeshLocalPosition}>
             <primitive object={setup.cpu} />
