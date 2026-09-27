@@ -4,7 +4,9 @@ import { useGSAP } from "@gsap/react";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import dynamic from "next/dynamic";
+import Image from "next/image";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import heroLogo from "../../../RamazanYildirim_Logo.png";
 import { HardwareInteractionOverlay } from "./HardwareInteractionOverlay";
 import { RearIoOverlay } from "./RearIoOverlay";
 import { createProgressSource, range } from "./scroll-progress";
@@ -252,6 +254,15 @@ export function CinematicExperience() {
         <div className="cinematic-vignette" aria-hidden="true" />
 
         <div className="cinematic-overlays" id="top">
+          <div className="hero-brand-logo">
+            <Image
+              alt="Ramazan Yıldırım"
+              priority
+              sizes="(max-width: 760px) 88px, 8vw"
+              src={heroLogo}
+            />
+          </div>
+
           <section className="cinematic-copy-scene hero-copy">
             <h1>
               RAMAZAN

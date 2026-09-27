@@ -159,6 +159,24 @@ a {
   pointer-events: none;
 }
 
+.hero-brand-logo {
+  position: absolute;
+  top: clamp(22px, 4vh, 48px);
+  left: clamp(22px, 5vw, 78px);
+  width: clamp(92px, 8vw, 128px);
+  opacity: var(--hero-opacity);
+  transform: translateY(calc((1 - var(--hero-opacity)) * -14px));
+  will-change: opacity, transform;
+}
+
+.hero-brand-logo img {
+  display: block;
+  width: 100%;
+  height: auto;
+  filter: invert(1);
+  mix-blend-mode: screen;
+}
+
 .cinematic-copy-scene {
   position: absolute;
   left: clamp(22px, 7vw, 112px);
@@ -1232,6 +1250,12 @@ a {
 
   .cinematic-header p {
     display: none;
+  }
+
+  .hero-brand-logo {
+    top: 18px;
+    left: 18px;
+    width: 88px;
   }
 
   .cinematic-shade {
