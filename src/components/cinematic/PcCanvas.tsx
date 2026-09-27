@@ -19,8 +19,10 @@ type PcCanvasProps = {
   onCoolerClick: () => void;
   onGpuClick: () => void;
   onHoverChange: (target: SceneHover | null) => void;
+  onRamFocusChange: (active: boolean) => void;
   onRamClick: (ramIndex: number, anchor: ScreenAnchor) => void;
   progressSource: ProgressSource;
+  ramFocusActive: boolean;
 };
 
 function SceneLoader() {
@@ -59,8 +61,10 @@ export function PcCanvas({
   onCoolerClick,
   onGpuClick,
   onHoverChange,
+  onRamFocusChange,
   onRamClick,
   progressSource,
+  ramFocusActive,
 }: PcCanvasProps) {
   return (
     <Canvas
@@ -98,8 +102,10 @@ export function PcCanvas({
           onCoolerClick={onCoolerClick}
           onGpuClick={onGpuClick}
           onHoverChange={onHoverChange}
+          onRamFocusChange={onRamFocusChange}
           onRamClick={onRamClick}
           progressSource={progressSource}
+          ramFocusActive={ramFocusActive}
         />
       </Suspense>
     </Canvas>

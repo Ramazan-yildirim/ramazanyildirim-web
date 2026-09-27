@@ -43,6 +43,11 @@ const CPU_FACE_HEIGHT_SCALE = 1.02;
 const CPU_FACE_CORNER_RADIUS = 84;
 const CPU_FACE_TEXTURE_INSET = 30;
 const HARDWARE_INTERACTION_START = 0.92;
+const INTERACTION_REVEAL_DELAY = 0.14;
+const INTERACTION_REVEAL_STEP = 0.58;
+const INTERACTION_REVEAL_GLOW_DURATION = 0.21;
+const INTERACTION_REVEAL_HOLD_DURATION = 0.1;
+const INTERACTION_REVEAL_RESTORE_DURATION = 0.27;
 
 type PcSceneProps = {
   cpuFaceCornerRadius?: number;
@@ -55,8 +60,10 @@ type PcSceneProps = {
   onCoolerClick: () => void;
   onGpuClick: () => void;
   onHoverChange: (target: SceneHover | null) => void;
+  onRamFocusChange: (active: boolean) => void;
   onRamClick: (ramIndex: number, anchor: ScreenAnchor) => void;
   progressSource: ProgressSource;
+  ramFocusActive: boolean;
 };
 
 type InteractionHitboxProps = {
@@ -1317,28 +1324,6 @@ function isolateHighlightMaterials(parts: Object3D[]) {
   }));
 }
 
-function collectHighlightMaterials(parts: Object3D[]) {
-  const materials = new Set<MeshStandardMaterial>();
-
-  parts.forEach((part) => {
-    part.traverse((object) => {
-      if (!(object instanceof Mesh)) return;
-      const meshMaterials = Array.isArray(object.material)
-        ? object.material
-        : [object.material];
-      meshMaterials.forEach((material) => {
-        if (material instanceof MeshStandardMaterial) materials.add(material);
-      });
-    });
-  });
-
-  return [...materials].map<HighlightMaterialState>((material) => ({
-    color: material.emissive.clone(),
-    intensity: material.emissiveIntensity,
-    material,
-  }));
-}
-
 function addHighlightTween(
   timeline: gsap.core.Timeline,
   states: HighlightMaterialState[],
@@ -1401,6 +1386,50 @@ function addHighlightRestore(
       position,
     );
   });
+}
+
+function addRevealPulse(
+  timeline: gsap.core.Timeline,
+  states: HighlightMaterialState[],
+  colorMix: number,
+  intensityBoost: number,
+  position: number,
+) {
+  states.forEach((state) => {
+    const highlightedColor = state.color
+      .clone()
+      .lerp(new Color("#68e8f2"), colorMix);
+
+    timeline.to(
+      state.material.emissive,
+      {
+        b: highlightedColor.b,
+        duration: INTERACTION_REVEAL_GLOW_DURATION,
+        ease: "sine.out",
+        g: highlightedColor.g,
+        r: highlightedColor.r,
+      },
+      position,
+    );
+    timeline.to(
+      state.material,
+      {
+        duration: INTERACTION_REVEAL_GLOW_DURATION,
+        ease: "sine.out",
+        emissiveIntensity: state.intensity + intensityBoost,
+      },
+      position,
+    );
+  });
+
+  addHighlightRestore(
+    timeline,
+    states,
+    position +
+      INTERACTION_REVEAL_GLOW_DURATION +
+      INTERACTION_REVEAL_HOLD_DURATION,
+    INTERACTION_REVEAL_RESTORE_DURATION,
+  );
 }
 
 function createCpuCloudMaterial() {
@@ -1563,8 +1592,10 @@ export function PcScene({
   onCoolerClick,
   onGpuClick,
   onHoverChange,
+  onRamFocusChange,
   onRamClick,
   progressSource,
+  ramFocusActive,
 }: PcSceneProps) {
   const gltf = useGLTF(MODEL_URL);
   const preparedModel = useMemo(() => {
@@ -1603,10 +1634,15 @@ export function PcScene({
   const lastProgressRef = useRef(0);
   const updateSceneRef = useRef<(progress: number) => void>(() => {});
   const interactionTimelineRef = useRef<gsap.core.Timeline | null>(null);
+  const ramCameraTweenRef = useRef<gsap.core.Tween | null>(null);
   const introHighlightTimelineRef = useRef<gsap.core.Timeline | null>(null);
   const hoverHighlightTimelineRef = useRef<gsap.core.Timeline | null>(null);
-  const interactionIntroPlayedRef = useRef(false);
   const interactionKindRef = useRef<SceneInteraction>(null);
+  const ramCameraAmountRef = useRef({ pullback: 0, value: 0 });
+  const ramFocusFrameReadyRef = useRef(false);
+  const ramFocusPositionRef = useRef(new Vector3());
+  const ramFocusReadyRef = useRef(false);
+  const ramFocusTargetRef = useRef(new Vector3());
   const gpuCameraAmountRef = useRef({ value: 0 });
   const coolerCameraAmountRef = useRef({ value: 0 });
   const finalCameraStateRef = useRef({
@@ -1625,6 +1661,7 @@ export function PcScene({
     const radiator = model.getObjectByName("SIVI_SOGUTMA_FAN_KASA");
     const cable = model.getObjectByName("SIVI_SOGUTMA_KABLO");
     const hoseEnds = cable?.getObjectByName("BezierCurve005_2");
+    const coolingFrame = cooler?.getObjectByName("Cube529_1");
     const coolingScreen = cooler?.getObjectByName("Cube529_2");
     const motherboardSurface = motherboard?.getObjectByName("Text060_1");
     const motherboardBackdrop = motherboard?.getObjectByName("Text060_8");
@@ -1637,6 +1674,7 @@ export function PcScene({
       !radiator ||
       !cable ||
       !(hoseEnds instanceof Mesh) ||
+      !(coolingFrame instanceof Mesh) ||
       !(coolingScreen instanceof Mesh) ||
       !(motherboardSurface instanceof Mesh) ||
       !(motherboardBackdrop instanceof Mesh) ||
@@ -1923,7 +1961,10 @@ export function PcScene({
       ...gpuBodyHighlightMaterials,
       ...gpuCableHighlightMaterials,
     ];
-    const coolerHighlightMaterials = collectHighlightMaterials([coolingScreen]);
+    const coolerHighlightMaterials = isolateHighlightMaterials([coolingFrame]);
+    const coolerHighlightMaterialSet = new Set(
+      coolerHighlightMaterials.map((state) => state.material),
+    );
 
     const coolingParts = new Set(
       rootParts.filter((part) => part.name.startsWith("SIVI_SOGUTMA_")),
@@ -2017,7 +2058,12 @@ export function PcScene({
         ? object.material
         : [object.material];
       materials.forEach((material) => {
-        if (cpuMaterials.has(material) || !hasEmissiveIntensity(material))
+        if (
+          cpuMaterials.has(material) ||
+          material === coolingScreenMaterial ||
+          coolerHighlightMaterialSet.has(material) ||
+          !hasEmissiveIntensity(material)
+        )
           return;
         material.userData.originalEmissiveIntensity =
           material.emissiveIntensity;
@@ -2104,6 +2150,7 @@ export function PcScene({
       const isolatedMaterials = new Set(
         [
           ...setup.ramHighlightMaterials.flat(),
+          ...setup.coolerHighlightMaterials,
           ...setup.gpuHighlightMaterials,
         ].map((state) => state.material),
       );
@@ -2286,8 +2333,9 @@ export function PcScene({
       }
 
       const interactionOwnsCamera =
-        Boolean(interactionKindRef.current) &&
-        progress >= HARDWARE_INTERACTION_START;
+        progress >= HARDWARE_INTERACTION_START &&
+        (Boolean(interactionKindRef.current) ||
+          ramCameraAmountRef.current.value > 0.001);
 
       if (!interactionOwnsCamera) {
         camera.position.copy(cameraPosition);
@@ -2389,34 +2437,52 @@ export function PcScene({
   ]);
 
   useEffect(() => {
-    if (!interactionReady || interactionIntroPlayedRef.current) return;
-
-    interactionIntroPlayedRef.current = true;
+    if (!interactionReady) return;
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 
-    const ramMaterials = setup.ramHighlightMaterials.flat();
     const sequence = [
-      ramMaterials,
-      setup.coolerHighlightMaterials,
-      setup.gpuHighlightMaterials,
+      ...setup.ramHighlightMaterials.map((states) => ({
+        colorMix: 0.34,
+        intensityBoost: 0.46,
+        states,
+      })),
+      {
+        colorMix: 0.14,
+        intensityBoost: 0.85,
+        states: setup.coolerHighlightMaterials,
+      },
+      {
+        colorMix: 0.26,
+        intensityBoost: 0.4,
+        states: setup.gpuHighlightMaterials,
+      },
     ];
     const timeline = gsap.timeline({
-      delay: 0.18,
+      delay: INTERACTION_REVEAL_DELAY,
       onComplete: () => {
+        sequence.flatMap(({ states }) => states).forEach((state) => {
+          state.material.emissive.copy(state.color);
+          state.material.emissiveIntensity = state.intensity;
+        });
         introHighlightTimelineRef.current = null;
       },
     });
 
-    sequence.forEach((states, index) => {
-      const position = index * 0.42;
-      addHighlightTween(timeline, states, 0.14, position, 0.2);
-      addHighlightRestore(timeline, states, position + 0.2, 0.22);
+    sequence.forEach(({ colorMix, intensityBoost, states }, index) => {
+      const position = index * INTERACTION_REVEAL_STEP;
+      addRevealPulse(
+        timeline,
+        states,
+        colorMix,
+        intensityBoost,
+        position,
+      );
     });
 
     introHighlightTimelineRef.current = timeline;
     return () => {
       timeline.kill();
-      sequence.flat().forEach((state) => {
+      sequence.flatMap(({ states }) => states).forEach((state) => {
         state.material.emissive.copy(state.color);
         state.material.emissiveIntensity = state.intensity;
       });
@@ -2466,6 +2532,204 @@ export function PcScene({
       timeline.kill();
     };
   }, [hoveredTarget, interaction, interactionReady, setup]);
+
+  const ramInteractionActive =
+    interactionReady && interaction?.kind === "ram";
+  const ramCameraFocusActive =
+    interactionReady && (ramFocusActive || ramInteractionActive);
+
+  useEffect(() => {
+    ramCameraTweenRef.current?.kill();
+
+    const targetAmount = ramCameraFocusActive ? 1 : 0;
+    const selectedRamIndex =
+      interaction?.kind === "ram" ? interaction.ramIndex : -1;
+    let targetPullback = 0;
+
+    if (
+      targetAmount === 0 &&
+      ramCameraAmountRef.current.value < 0.001 &&
+      ramCameraAmountRef.current.pullback < 0.001
+    ) {
+      ramFocusFrameReadyRef.current = false;
+      return;
+    }
+
+    if (ramCameraFocusActive && !ramFocusFrameReadyRef.current) {
+      const ramBounds = new Box3().makeEmpty();
+      setup.ramParts.forEach((part) => {
+        part.updateWorldMatrix(true, false);
+        ramBounds.expandByObject(part);
+      });
+      if (ramBounds.isEmpty()) return;
+
+      const ramGroupTarget = ramBounds.getCenter(new Vector3());
+      const ramGroupSize = ramBounds.getSize(new Vector3());
+      let focusDistance = size.width < 760 ? 3 : 2.05;
+
+      if (camera instanceof PerspectiveCamera) {
+        const verticalFov = (camera.fov * Math.PI) / 180;
+        const fitHeight = ramGroupSize.y / (2 * Math.tan(verticalFov / 2));
+        const fitWidth =
+          ramGroupSize.x /
+          (2 * Math.tan(verticalFov / 2) * Math.max(camera.aspect, 0.1));
+        focusDistance = Math.max(
+          focusDistance,
+          fitHeight * 1.22,
+          fitWidth * 1.22,
+        );
+      }
+      focusDistance += ramGroupSize.z * 0.5;
+
+      ramFocusTargetRef.current.copy(ramGroupTarget);
+      ramFocusPositionRef.current.copy(ramGroupTarget).add(
+        new Vector3(0, Math.max(ramGroupSize.y * 0.04, 0.08), focusDistance),
+      );
+      ramFocusFrameReadyRef.current = true;
+    }
+
+    if (
+      ramInteractionActive &&
+      selectedRamIndex >= 0 &&
+      ramFocusFrameReadyRef.current
+    ) {
+      const selectedRam = setup.ramParts[selectedRamIndex];
+      const selectedRamBase = setup.ramBaseTransforms[selectedRamIndex];
+
+      if (selectedRam && selectedRamBase) {
+        const currentPosition = selectedRam.position.clone();
+        const currentRotation = selectedRam.rotation.clone();
+        selectedRam.position.set(
+          selectedRamBase.position.x,
+          selectedRamBase.position.y,
+          selectedRamBase.position.z + 0.11,
+        );
+        selectedRam.rotation.set(
+          selectedRamBase.rotation.x,
+          selectedRamBase.rotation.y + Math.PI / 2,
+          selectedRamBase.rotation.z,
+        );
+        selectedRam.updateWorldMatrix(true, false);
+
+        const openRamBounds = new Box3().makeEmpty();
+        setup.ramParts.forEach((part) => {
+          part.updateWorldMatrix(true, false);
+          openRamBounds.expandByObject(part);
+        });
+
+        selectedRam.position.copy(currentPosition);
+        selectedRam.rotation.copy(currentRotation);
+        selectedRam.updateWorldMatrix(true, false);
+
+        if (!openRamBounds.isEmpty()) {
+          const focusTarget = ramFocusTargetRef.current;
+          const baseDistance =
+            ramFocusPositionRef.current.z - focusTarget.z;
+          const minimumPullback = size.width < 760 ? 0.65 : 0.45;
+          let requiredDistance = baseDistance + minimumPullback;
+
+          if (camera instanceof PerspectiveCamera) {
+            const verticalFov = (camera.fov * Math.PI) / 180;
+            const tangent = Math.tan(verticalFov / 2);
+            const verticalExtent = Math.max(
+              Math.abs(openRamBounds.max.y - focusTarget.y),
+              Math.abs(openRamBounds.min.y - focusTarget.y),
+            );
+            const horizontalExtent = Math.max(
+              Math.abs(openRamBounds.max.x - focusTarget.x),
+              Math.abs(openRamBounds.min.x - focusTarget.x),
+            );
+            const fitHeight = verticalExtent / tangent;
+            const fitWidth =
+              horizontalExtent / (tangent * Math.max(camera.aspect, 0.1));
+            const depthPadding = Math.max(
+              0,
+              openRamBounds.max.z - focusTarget.z,
+            );
+            requiredDistance = Math.max(
+              requiredDistance,
+              Math.max(fitHeight, fitWidth) * 1.28 + depthPadding,
+            );
+          }
+
+          targetPullback = Math.max(
+            minimumPullback,
+            requiredDistance - baseDistance,
+          );
+        }
+      }
+    }
+
+    const updateRamCamera = () => {
+      const amount = smoothstep(ramCameraAmountRef.current.value);
+      const finalState = finalCameraStateRef.current;
+      const ramGroupTarget = ramFocusTargetRef.current;
+      const ramCameraPosition = ramFocusPositionRef.current
+        .clone()
+        .add(new Vector3(0, 0, ramCameraAmountRef.current.pullback));
+
+      camera.position.copy(finalState.position).lerp(ramCameraPosition, amount);
+      camera.up.set(0, 1, 0);
+      camera.lookAt(finalState.target.clone().lerp(ramGroupTarget, amount));
+
+      if (camera instanceof PerspectiveCamera) {
+        const viewOffset = finalState.viewOffset * (1 - amount);
+
+        if (Math.abs(viewOffset) > 0.5) {
+          camera.setViewOffset(
+            size.width,
+            size.height,
+            viewOffset,
+            0,
+            size.width,
+            size.height,
+          );
+        } else {
+          camera.clearViewOffset();
+        }
+        camera.updateProjectionMatrix();
+      }
+
+      camera.updateMatrixWorld();
+      invalidate();
+    };
+
+    const returningFromSelection =
+      !ramInteractionActive && ramCameraAmountRef.current.pullback > 0.001;
+    const tween = gsap.to(ramCameraAmountRef.current, {
+      duration: ramInteractionActive || returningFromSelection
+        ? 0.42
+        : ramCameraFocusActive
+          ? 0.82
+          : 0.65,
+      ease: "power3.inOut",
+      onComplete: () => {
+        ramCameraTweenRef.current = null;
+        ramFocusReadyRef.current = ramCameraFocusActive;
+        if (targetAmount === 0 && !interactionKindRef.current) {
+          ramFocusFrameReadyRef.current = false;
+          updateSceneRef.current(lastProgressRef.current);
+        }
+      },
+      onUpdate: updateRamCamera,
+      pullback: targetPullback,
+      value: targetAmount,
+    });
+
+    ramCameraTweenRef.current = tween;
+    return () => {
+      tween.kill();
+    };
+  }, [
+    camera,
+    invalidate,
+    interaction,
+    ramCameraFocusActive,
+    ramInteractionActive,
+    setup,
+    size.height,
+    size.width,
+  ]);
 
   useEffect(() => {
     interactionTimelineRef.current?.kill();
@@ -2697,7 +2961,17 @@ export function PcScene({
           <InteractionHitbox
             enabled={interactionReady && !interaction}
             key={`ram-hitbox-${ramIndex}`}
-            onActivate={(anchor) => onRamClick(ramIndex, anchor)}
+            onActivate={(anchor) => {
+              if (!ramFocusActive) {
+                ramFocusReadyRef.current = false;
+                onRamFocusChange(true);
+                onHoverChange(null);
+                return;
+              }
+              if (ramFocusReadyRef.current) {
+                onRamClick(ramIndex, anchor);
+              }
+            }}
             onHoverChange={onHoverChange}
             position={target.position}
             size={target.size}
@@ -2706,7 +2980,11 @@ export function PcScene({
         ))}
         <InteractionHitbox
           enabled={interactionReady && !interaction}
-          onActivate={onCoolerClick}
+          onActivate={() => {
+            ramFocusReadyRef.current = false;
+            onRamFocusChange(false);
+            onCoolerClick();
+          }}
           onHoverChange={onHoverChange}
           position={setup.coolerTarget.position}
           size={setup.coolerTarget.size}
@@ -2714,7 +2992,11 @@ export function PcScene({
         />
         <InteractionHitbox
           enabled={interactionReady && !interaction}
-          onActivate={onGpuClick}
+          onActivate={() => {
+            ramFocusReadyRef.current = false;
+            onRamFocusChange(false);
+            onGpuClick();
+          }}
           onHoverChange={onHoverChange}
           position={setup.gpuTarget.position}
           size={setup.gpuTarget.size}

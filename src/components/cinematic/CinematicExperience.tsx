@@ -42,8 +42,13 @@ export function CinematicExperience() {
   const [interaction, setInteraction] = useState<SceneInteraction>(null);
   const [hoveredTarget, setHoveredTarget] = useState<SceneHover | null>(null);
   const [interactionReady, setInteractionReady] = useState(false);
+  const [ramFocusActive, setRamFocusActive] = useState(false);
   const interactionReadyRef = useRef(false);
   const closeInteraction = useCallback(() => setInteraction(null), []);
+  const closeRamFocus = useCallback(() => {
+    setHoveredTarget(null);
+    setRamFocusActive(false);
+  }, []);
   const handleHoverChange = useCallback(
     (target: SceneHover | null) => setHoveredTarget(target),
     [],
@@ -57,21 +62,28 @@ export function CinematicExperience() {
   );
   const handleCoolerClick = useCallback(() => {
     setHoveredTarget(null);
+    setRamFocusActive(false);
     setInteraction({ kind: "cooler" });
   }, []);
   const handleGpuClick = useCallback(() => {
     setHoveredTarget(null);
+    setRamFocusActive(false);
     setInteraction({ kind: "gpu" });
   }, []);
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") closeInteraction();
+      if (event.key !== "Escape") return;
+      if (interaction) {
+        closeInteraction();
+      } else {
+        closeRamFocus();
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [closeInteraction]);
+  }, [closeInteraction, closeRamFocus, interaction]);
 
   useGSAP(
     () => {
@@ -111,6 +123,7 @@ export function CinematicExperience() {
           if (!nextInteractionReady) {
             setHoveredTarget(null);
             setInteraction(null);
+            setRamFocusActive(false);
           }
         }
 
@@ -171,8 +184,10 @@ export function CinematicExperience() {
           onCoolerClick={handleCoolerClick}
           onGpuClick={handleGpuClick}
           onHoverChange={handleHoverChange}
+          onRamFocusChange={setRamFocusActive}
           onRamClick={handleRamClick}
           progressSource={progressSource}
+          ramFocusActive={ramFocusActive}
         />
 
         <div className="cinematic-shade" aria-hidden="true" />
@@ -225,6 +240,8 @@ export function CinematicExperience() {
           interaction={interaction}
           interactionReady={interactionReady}
           onClose={closeInteraction}
+          onRamFocusClose={closeRamFocus}
+          ramFocusActive={ramFocusActive}
         />
       </div>
 

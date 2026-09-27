@@ -12,6 +12,8 @@ type HardwareInteractionOverlayProps = {
   interaction: SceneInteraction;
   interactionReady: boolean;
   onClose: () => void;
+  onRamFocusClose: () => void;
+  ramFocusActive: boolean;
 };
 
 type AnchorStyle = CSSProperties & {
@@ -65,6 +67,8 @@ export function HardwareInteractionOverlay({
   interaction,
   interactionReady,
   onClose,
+  onRamFocusClose,
+  ramFocusActive,
 }: HardwareInteractionOverlayProps) {
   const hoverContent = hoveredTarget ? HOVER_CONTENT[hoveredTarget.kind] : null;
   const ramContent =
@@ -157,6 +161,18 @@ export function HardwareInteractionOverlay({
             </p>
           </section>
         </div>
+      ) : null}
+
+      {ramFocusActive && !interaction ? (
+        <button
+          aria-label="RAM focus görünümünden çık"
+          className="hardware-scene-return ram-focus-return"
+          onClick={onRamFocusClose}
+          type="button"
+        >
+          <span aria-hidden="true">←</span>
+          SAHNEYE DÖN
+        </button>
       ) : null}
 
       {interaction?.kind === "gpu" ? (

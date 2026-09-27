@@ -914,6 +914,10 @@ a {
   outline: none;
 }
 
+.ram-focus-return {
+  animation-delay: 0.15s;
+}
+
 @keyframes hardware-panel-in {
   from {
     opacity: 0;
