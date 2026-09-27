@@ -44,8 +44,8 @@ docker compose up --build
 
 ## İlk sinematik sekans
 
-Başlangıçta işlemci üstten 90 derece görünür ve çalışma zamanında üretilen `RY`
-yüzeyi eski işlemci yazısını kapatır. Scroll ilerledikçe kamera kasayı gösterecek
+Başlangıçta işlemci üstten 90 derece görünür ve çalışma zamanında üretilen logolu
+yüzey eski işlemci yazısını kapatır. Scroll ilerledikçe kamera kasayı gösterecek
 şekilde geri çekilir. Aynı zaman aralığında sıvı soğutucu işlemciye dik eksende
 iner; hortum geometrisi hareket eden bağlantı noktasını izler. Animasyon ters
 scroll sırasında aynı zaman çizgisi üzerinden geri sarılır.

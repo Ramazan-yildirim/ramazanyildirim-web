@@ -69,26 +69,53 @@ export function HardwareInteractionOverlay({
           aria-modal="false"
           className="ram-module-panel"
           role="dialog"
-          style={getAnchorStyle(interaction.anchor)}
         >
           <span className="ram-panel-connector" aria-hidden="true" />
-          <div className="ram-panel-header">
-            <p>MEMORY / {String(interaction.ramIndex + 1).padStart(2, "0")}</p>
-            <button
-              aria-label={copy.closeRam}
-              className="interaction-close"
-              onClick={onClose}
-              type="button"
-            >
-              ×
-            </button>
+          <div className="ram-terminal-frame">
+            <div className="ram-panel-header">
+              <div className="ram-terminal-title">
+                <span className="ram-terminal-lights" aria-hidden="true">
+                  <i />
+                  <i />
+                  <i />
+                </span>
+                <p>
+                  ramazan@portfolio: ~ — bash
+                </p>
+              </div>
+              <button
+                aria-label={copy.closeRam}
+                className="interaction-close"
+                onClick={onClose}
+                type="button"
+              >
+                ×
+              </button>
+            </div>
+            <div className="ram-terminal-output">
+              <p className="ram-terminal-command">
+                <strong>ramazan@portfolio</strong>
+                <span aria-hidden="true">:~$</span> ./memory-info --slot={String(
+                  interaction.ramIndex + 1,
+                ).padStart(2, "0")}
+              </p>
+              <div className="ram-panel-data">
+                <span>system: GNU/Linux</span>
+                <span>memory: {copy.memory}</span>
+                <span>status: [ OK ] {copy.moduleActive}</span>
+              </div>
+              <h2>
+                <span aria-hidden="true">&gt;</span> {ramContent.code}
+              </h2>
+              <p className="ram-panel-copy">{ramContent.text}</p>
+            </div>
+            <div className="ram-terminal-footer" aria-hidden="true">
+              <span>
+                <strong>ramazan@portfolio</strong>:~$
+              </span>
+              <i />
+            </div>
           </div>
-          <h2>{ramContent.code}</h2>
-          <div className="ram-panel-data">
-            <span>{copy.moduleActive}</span>
-            <span>{copy.memory}</span>
-          </div>
-          <p className="ram-panel-copy">{ramContent.text}</p>
         </aside>
       ) : null}
 

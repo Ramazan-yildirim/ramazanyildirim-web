@@ -6,6 +6,7 @@ import { useGLTF } from "@react-three/drei";
 import { useThree, type ThreeEvent } from "@react-three/fiber";
 import gsap from "gsap";
 import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import cpuLogo from "../../../RamazanYildirim_Logo.png";
 import {
   AmbientLight,
   Box3,
@@ -53,6 +54,8 @@ const INTERACTION_REVEAL_RESTORE_DURATION = 0.27;
 const GPU_INTERACTION_OPEN_DURATION = 2.4;
 const GPU_INTERACTION_CLOSE_DURATION = 2.2;
 const GPU_INTERACTION_START = 0.08;
+const RAM_PANEL_WIDTH_SCALE = 2.6;
+const RAM_PANEL_HEIGHT_SCALE = 1;
 
 type PcSceneProps = {
   cpuFaceCornerRadius?: number;
@@ -232,6 +235,59 @@ function RearPortHitbox({
         transparent
       />
     </mesh>
+  );
+}
+
+function updateRamPanelMetrics(
+  ram: Object3D,
+  camera: PerspectiveCamera,
+  viewportWidth: number,
+  viewportHeight: number,
+) {
+  const bounds = new Box3().setFromObject(ram);
+  if (bounds.isEmpty()) return;
+
+  const corners = [
+    new Vector3(bounds.min.x, bounds.min.y, bounds.min.z),
+    new Vector3(bounds.min.x, bounds.min.y, bounds.max.z),
+    new Vector3(bounds.min.x, bounds.max.y, bounds.min.z),
+    new Vector3(bounds.min.x, bounds.max.y, bounds.max.z),
+    new Vector3(bounds.max.x, bounds.min.y, bounds.min.z),
+    new Vector3(bounds.max.x, bounds.min.y, bounds.max.z),
+    new Vector3(bounds.max.x, bounds.max.y, bounds.min.z),
+    new Vector3(bounds.max.x, bounds.max.y, bounds.max.z),
+  ];
+  let minX = Number.POSITIVE_INFINITY;
+  let maxX = Number.NEGATIVE_INFINITY;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+
+  corners.forEach((corner) => {
+    const projected = corner.project(camera);
+    const screenX = (projected.x * 0.5 + 0.5) * viewportWidth;
+    const screenY = (-projected.y * 0.5 + 0.5) * viewportHeight;
+    minX = Math.min(minX, screenX);
+    maxX = Math.max(maxX, screenX);
+    minY = Math.min(minY, screenY);
+    maxY = Math.max(maxY, screenY);
+  });
+
+  const viewport = document.querySelector<HTMLElement>(
+    ".cinematic-viewport",
+  );
+  if (!viewport) return;
+
+  viewport.style.setProperty(
+    "--ram-panel-left",
+    `${maxX.toFixed(2)}px`,
+  );
+  viewport.style.setProperty(
+    "--ram-panel-width",
+    `${Math.max(1, (maxX - minX) * RAM_PANEL_WIDTH_SCALE).toFixed(2)}px`,
+  );
+  viewport.style.setProperty(
+    "--ram-panel-height",
+    `${Math.max(1, (maxY - minY) * RAM_PANEL_HEIGHT_SCALE).toFixed(2)}px`,
   );
 }
 
@@ -1523,7 +1579,11 @@ function createCpuCloudMaterial() {
   });
 }
 
-function createCpuFaceMaterial(cornerRadius: number, textureInset: number) {
+function createCpuFaceMaterial(
+  cornerRadius: number,
+  textureInset: number,
+  logoUrl: string,
+) {
   const canvas = document.createElement("canvas");
   canvas.width = 1024;
   canvas.height = 1024;
@@ -1565,23 +1625,13 @@ function createCpuFaceMaterial(cornerRadius: number, textureInset: number) {
   }
   context.globalAlpha = 1;
 
-  const textGradient = context.createLinearGradient(290, 330, 740, 700);
-  textGradient.addColorStop(0, "#1b2225");
-  textGradient.addColorStop(0.42, "#4b5559");
-  textGradient.addColorStop(0.68, "#2d3639");
-  textGradient.addColorStop(1, "#171e21");
-  context.font = "700 390px Arial, sans-serif";
-  context.textAlign = "center";
-  context.textBaseline = "middle";
-  context.fillStyle = textGradient;
-  context.fillText("RY", 512, 530);
   context.restore();
 
   const texture = new CanvasTexture(canvas);
   texture.colorSpace = SRGBColorSpace;
   texture.anisotropy = 4;
 
-  return new MeshStandardMaterial({
+  const material = new MeshStandardMaterial({
     color: "#ffffff",
     map: texture,
     metalness: 0.82,
@@ -1589,6 +1639,37 @@ function createCpuFaceMaterial(cornerRadius: number, textureInset: number) {
     transparent: true,
     alphaTest: 0.04,
   });
+
+  const logoImage = new Image();
+  logoImage.decoding = "async";
+  logoImage.onload = () => {
+    const sourceWidth = logoImage.naturalWidth;
+    const sourceHeight = logoImage.naturalHeight;
+
+    context.save();
+    context.globalAlpha = 0.94;
+    context.globalCompositeOperation = "multiply";
+    context.drawImage(
+      logoImage,
+      sourceWidth * 0.14,
+      sourceHeight * 0.27,
+      sourceWidth * 0.72,
+      sourceHeight * 0.49,
+      187,
+      310,
+      650,
+      440,
+    );
+    context.restore();
+    texture.needsUpdate = true;
+  };
+  logoImage.src = logoUrl;
+
+  material.addEventListener("dispose", () => {
+    logoImage.onload = null;
+  });
+
+  return material;
 }
 
 function createCoolingScreenMaterial() {
@@ -1696,7 +1777,12 @@ export function PcScene({
   const { cpu, model, wholeCenter } = preparedModel;
   const cpuCloudMaterial = useMemo(() => createCpuCloudMaterial(), []);
   const cpuFaceMaterial = useMemo(
-    () => createCpuFaceMaterial(cpuFaceCornerRadius, cpuFaceTextureInset),
+    () =>
+      createCpuFaceMaterial(
+        cpuFaceCornerRadius,
+        cpuFaceTextureInset,
+        cpuLogo.src,
+      ),
     [cpuFaceCornerRadius, cpuFaceTextureInset],
   );
   const coolingScreenMaterial = useMemo(
@@ -1718,11 +1804,12 @@ export function PcScene({
   const introHighlightTimelineRef = useRef<gsap.core.Timeline | null>(null);
   const hoverHighlightTimelineRef = useRef<gsap.core.Timeline | null>(null);
   const interactionKindRef = useRef<SceneInteraction>(null);
-  const ramCameraAmountRef = useRef({ pullback: 0, value: 0 });
+  const ramCameraAmountRef = useRef({ pullback: 0, selection: 0, value: 0 });
   const ramFocusFrameReadyRef = useRef(false);
   const ramFocusPositionRef = useRef(new Vector3());
   const ramFocusReadyRef = useRef(false);
   const ramFocusTargetRef = useRef(new Vector3());
+  const ramLayoutCenterTargetRef = useRef(new Vector3());
   const gpuCameraAmountRef = useRef({ value: 0 });
   const coolerCameraAmountRef = useRef({ value: 0 });
   const finalCameraStateRef = useRef({
@@ -2725,7 +2812,8 @@ export function PcScene({
     if (
       targetAmount === 0 &&
       ramCameraAmountRef.current.value < 0.001 &&
-      ramCameraAmountRef.current.pullback < 0.001
+      ramCameraAmountRef.current.pullback < 0.001 &&
+      ramCameraAmountRef.current.selection < 0.001
     ) {
       ramFocusFrameReadyRef.current = false;
       return;
@@ -2782,71 +2870,86 @@ export function PcScene({
         );
         selectedRam.rotation.set(
           selectedRamBase.rotation.x,
-          selectedRamBase.rotation.y + Math.PI / 2,
+          selectedRamBase.rotation.y - Math.PI / 2,
           selectedRamBase.rotation.z,
         );
         selectedRam.updateWorldMatrix(true, false);
 
-        const openRamBounds = new Box3().makeEmpty();
-        setup.ramParts.forEach((part) => {
-          part.updateWorldMatrix(true, false);
-          openRamBounds.expandByObject(part);
-        });
+        const selectedOpenBounds = new Box3().setFromObject(selectedRam);
+        const selectedOpenCenter = selectedOpenBounds.getCenter(new Vector3());
+        const selectedOpenSize = selectedOpenBounds.getSize(new Vector3());
+        ramLayoutCenterTargetRef.current.set(
+          selectedOpenBounds.max.x +
+            (selectedOpenSize.x * (RAM_PANEL_WIDTH_SCALE - 1)) / 2,
+          selectedOpenCenter.y,
+          selectedOpenCenter.z,
+        );
 
         selectedRam.position.copy(currentPosition);
         selectedRam.rotation.copy(currentRotation);
         selectedRam.updateWorldMatrix(true, false);
 
-        if (!openRamBounds.isEmpty()) {
-          const focusTarget = ramFocusTargetRef.current;
+        if (!selectedOpenBounds.isEmpty()) {
+          const focusTarget = ramLayoutCenterTargetRef.current;
           const baseDistance =
-            ramFocusPositionRef.current.z - focusTarget.z;
-          const minimumPullback = size.width < 760 ? 0.65 : 0.45;
-          let requiredDistance = baseDistance + minimumPullback;
+            ramFocusPositionRef.current.z - ramFocusTargetRef.current.z;
+          let requiredDistance = baseDistance;
 
           if (camera instanceof PerspectiveCamera) {
             const verticalFov = (camera.fov * Math.PI) / 180;
             const tangent = Math.tan(verticalFov / 2);
-            const verticalExtent = Math.max(
-              Math.abs(openRamBounds.max.y - focusTarget.y),
-              Math.abs(openRamBounds.min.y - focusTarget.y),
-            );
-            const horizontalExtent = Math.max(
-              Math.abs(openRamBounds.max.x - focusTarget.x),
-              Math.abs(openRamBounds.min.x - focusTarget.x),
-            );
+            const verticalExtent =
+              (selectedOpenSize.y * RAM_PANEL_HEIGHT_SCALE) / 2;
+            const horizontalExtent =
+              (selectedOpenSize.x * (1 + RAM_PANEL_WIDTH_SCALE)) / 2;
             const fitHeight = verticalExtent / tangent;
             const fitWidth =
               horizontalExtent / (tangent * Math.max(camera.aspect, 0.1));
             const depthPadding = Math.max(
               0,
-              openRamBounds.max.z - focusTarget.z,
+              selectedOpenBounds.max.z - focusTarget.z,
             );
-            requiredDistance = Math.max(
-              requiredDistance,
-              Math.max(fitHeight, fitWidth) * 1.28 + depthPadding,
-            );
+            requiredDistance =
+              Math.max(fitHeight, fitWidth) * 1.08 + depthPadding;
           }
 
-          targetPullback = Math.max(
-            minimumPullback,
-            requiredDistance - baseDistance,
-          );
+          targetPullback = Math.max(-1.8, requiredDistance - baseDistance);
         }
       }
     }
 
     const updateRamCamera = () => {
       const amount = smoothstep(ramCameraAmountRef.current.value);
+      const selectionAmount = smoothstep(
+        ramCameraAmountRef.current.selection,
+      );
       const finalState = finalCameraStateRef.current;
       const ramGroupTarget = ramFocusTargetRef.current;
-      const ramCameraPosition = ramFocusPositionRef.current
+      const ramCameraTarget = ramGroupTarget
+        .clone()
+        .lerp(ramLayoutCenterTargetRef.current, selectionAmount);
+      const focusDistance =
+        ramFocusPositionRef.current.z - ramGroupTarget.z;
+      const focusCameraPosition = ramFocusPositionRef.current
         .clone()
         .add(new Vector3(0, 0, ramCameraAmountRef.current.pullback));
+      const selectedCameraPosition = ramLayoutCenterTargetRef.current
+        .clone()
+        .add(
+          new Vector3(
+            0,
+            0,
+            focusDistance + ramCameraAmountRef.current.pullback,
+          ),
+        );
+      const ramCameraPosition = focusCameraPosition.lerp(
+        selectedCameraPosition,
+        selectionAmount,
+      );
 
       camera.position.copy(finalState.position).lerp(ramCameraPosition, amount);
       camera.up.set(0, 1, 0);
-      camera.lookAt(finalState.target.clone().lerp(ramGroupTarget, amount));
+      camera.lookAt(finalState.target.clone().lerp(ramCameraTarget, amount));
 
       if (camera instanceof PerspectiveCamera) {
         const viewOffset = finalState.viewOffset * (1 - amount);
@@ -2867,14 +2970,32 @@ export function PcScene({
       }
 
       camera.updateMatrixWorld();
+      if (
+        selectedRamIndex >= 0 &&
+        camera instanceof PerspectiveCamera
+      ) {
+        const selectedRam = setup.ramParts[selectedRamIndex];
+        if (selectedRam) {
+          updateRamPanelMetrics(
+            selectedRam,
+            camera,
+            size.width,
+            size.height,
+          );
+        }
+      }
       invalidate();
     };
 
     const returningFromSelection =
-      !ramInteractionActive && ramCameraAmountRef.current.pullback > 0.001;
+      !ramInteractionActive &&
+      (ramCameraAmountRef.current.pullback > 0.001 ||
+        ramCameraAmountRef.current.selection > 0.001);
     const tween = gsap.to(ramCameraAmountRef.current, {
-      duration: ramInteractionActive || returningFromSelection
-        ? 0.42
+      duration: ramInteractionActive
+        ? 0.52
+        : returningFromSelection
+          ? 0.9
         : ramCameraFocusActive
           ? 0.82
           : 0.65,
@@ -2889,6 +3010,7 @@ export function PcScene({
       },
       onUpdate: updateRamCamera,
       pullback: targetPullback,
+      selection: ramInteractionActive ? 1 : 0,
       value: targetAmount,
     });
 
@@ -2917,13 +3039,29 @@ export function PcScene({
       canInteract && interaction?.kind === "ram" ? interaction.ramIndex : -1;
     const gpuSelected = canInteract && interaction?.kind === "gpu";
     const coolerSelected = canInteract && interaction?.kind === "cooler";
+    const updateInteractionFrame = () => {
+      setup.updateGpuCableDeformation();
+      if (selectedRamIndex < 0 || !(camera instanceof PerspectiveCamera)) {
+        return;
+      }
+
+      const selectedRam = setup.ramParts[selectedRamIndex];
+      if (!selectedRam) return;
+      selectedRam.updateWorldMatrix(true, false);
+      updateRamPanelMetrics(
+        selectedRam,
+        camera,
+        size.width,
+        size.height,
+      );
+    };
     const timeline = gsap.timeline({
       defaults: { ease: "power3.inOut" },
       onComplete: () => {
-        setup.updateGpuCableDeformation();
+        updateInteractionFrame();
         setup.recomputeGpuCableNormals();
       },
-      onUpdate: setup.updateGpuCableDeformation,
+      onUpdate: updateInteractionFrame,
     });
 
     setup.ramParts.forEach((part, index) => {
@@ -2932,7 +3070,7 @@ export function PcScene({
       timeline.to(
         part.position,
         {
-          duration: selected ? 0.62 : 0.48,
+          duration: selected ? 0.62 : 0.86,
           x: base.position.x,
           y: base.position.y,
           z: base.position.z + (selected ? 0.11 : 0),
@@ -2942,9 +3080,9 @@ export function PcScene({
       timeline.to(
         part.rotation,
         {
-          duration: selected ? 0.72 : 0.48,
+          duration: selected ? 0.72 : 0.92,
           x: base.rotation.x,
-          y: base.rotation.y + (selected ? Math.PI / 2 : 0),
+          y: base.rotation.y - (selected ? Math.PI / 2 : 0),
           z: base.rotation.z,
         },
         selected ? 0.18 : 0,
