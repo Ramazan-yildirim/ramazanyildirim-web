@@ -1228,7 +1228,11 @@ a {
 
 .rear-port-dock button:hover,
 .rear-port-dock button:focus-visible {
-  background: rgba(156, 232, 246, 0.08);
+  background: color-mix(
+    in srgb,
+    var(--port-color, var(--accent)) 11%,
+    rgba(3, 7, 9, 0.56)
+  );
   color: #fff;
   outline: none;
 }
@@ -1250,9 +1254,29 @@ a {
 .rear-port-dock button i {
   width: 7px;
   height: 7px;
-  border: 1px solid var(--accent);
+  border: 1px solid var(--port-color, var(--accent));
   border-radius: 50%;
-  box-shadow: 0 0 10px rgba(156, 232, 246, 0.25);
+  background: color-mix(
+    in srgb,
+    var(--port-color, var(--accent)) 34%,
+    transparent
+  );
+  box-shadow: 0 0 11px
+    color-mix(in srgb, var(--port-color, var(--accent)) 42%, transparent);
+  transition:
+    background 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+
+.rear-port-dock button:hover i,
+.rear-port-dock button:focus-visible i {
+  background: var(--port-color, var(--accent));
+  box-shadow:
+    0 0 8px var(--port-color, var(--accent)),
+    0 0 18px
+      color-mix(in srgb, var(--port-color, var(--accent)) 70%, transparent);
+  transform: scale(1.18);
 }
 
 .rear-port-hud {
@@ -1299,12 +1323,16 @@ a {
   top: 50%;
   right: clamp(22px, 6vw, 96px);
   width: min(440px, calc(100vw - 44px));
+  max-height: calc(100svh - 48px);
   padding: 34px;
+  overflow-y: auto;
   border: 1px solid rgba(156, 232, 246, 0.24);
   background: rgba(3, 7, 9, 0.88);
   transform: translateY(-50%);
   animation: rear-contact-in 0.55s ease both;
   backdrop-filter: blur(18px);
+  scrollbar-color: rgba(80, 230, 255, 0.34) transparent;
+  scrollbar-width: thin;
 }
 
 .rear-contact-panel h2 {
@@ -1316,10 +1344,60 @@ a {
   right: 18px;
 }
 
+.rear-contact-links {
+  display: grid;
+  margin-top: 22px;
+  border-top: 1px solid rgba(80, 230, 255, 0.14);
+}
+
+.rear-contact-links a {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) 14px;
+  gap: 10px;
+  align-items: center;
+  min-height: 34px;
+  padding: 7px 8px;
+  border-bottom: 1px solid rgba(80, 230, 255, 0.09);
+  background: rgba(0, 120, 212, 0.025);
+  transition:
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.rear-contact-links a:hover,
+.rear-contact-links a:focus-visible {
+  background: rgba(80, 230, 255, 0.08);
+  outline: none;
+}
+
+.rear-contact-links a span {
+  color: rgba(139, 213, 255, 0.58);
+  font-family: var(--font-terminal);
+  font-size: 7px;
+  letter-spacing: 0.12em;
+}
+
+.rear-contact-links a strong {
+  min-width: 0;
+  color: rgba(239, 246, 248, 0.78);
+  font-family: var(--font-terminal);
+  font-size: 8px;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+
+.rear-contact-links a i {
+  color: var(--terminal-accent);
+  font-family: var(--font-terminal);
+  font-size: 10px;
+  font-style: normal;
+  text-align: right;
+}
+
 .rear-contact-panel form {
   display: grid;
   gap: 14px;
-  margin-top: 28px;
+  margin-top: 22px;
 }
 
 .rear-contact-panel label {
@@ -1378,104 +1456,52 @@ a {
   opacity: 0.16;
 }
 
-/* Neutral Linux terminal language control */
+/* Terminal text-selection language control */
 .language-switcher {
   top: calc(clamp(22px, 4vh, 48px) + clamp(10px, 1.1vw, 16px));
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  width: clamp(112px, 9vw, 142px);
-  height: clamp(24px, 2vw, 30px);
-  gap: 0;
-  padding: 2px;
-  overflow: hidden;
-  border: 1px solid rgba(168, 217, 230, 0.22);
-  border-radius: 2px;
-  background:
-    linear-gradient(120deg, rgba(80, 230, 255, 0.035), transparent 58%),
-    rgba(6, 8, 9, 0.9);
-  box-shadow:
-    0 18px 42px rgba(0, 0, 0, 0.34),
-    inset 0 0 24px rgba(80, 230, 255, 0.025);
-  filter: drop-shadow(0 0 9px rgba(80, 230, 255, 0.06));
+  display: flex;
+  width: auto;
+  height: auto;
+  gap: clamp(8px, 0.7vw, 12px);
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  filter: none;
   font-family: var(--font-terminal);
-  backdrop-filter: blur(14px);
+  backdrop-filter: none;
   transition:
     opacity 180ms ease,
     transform 180ms ease;
 }
 
-.language-switcher::before {
-  position: absolute;
-  z-index: 0;
-  inset: 0;
-  background: repeating-linear-gradient(
-    180deg,
-    transparent 0 3px,
-    rgba(168, 217, 230, 0.014) 3px 4px
-  );
-  content: "";
-  pointer-events: none;
-}
-
-.language-switcher::after {
-  position: absolute;
-  z-index: 4;
-  right: 0;
-  bottom: 0;
-  width: 18px;
-  height: 1px;
-  background: rgba(80, 230, 255, 0.82);
-  box-shadow: 0 0 8px rgba(80, 230, 255, 0.42);
-  content: "";
-  pointer-events: none;
-}
-
-.cinematic-scroll:not([data-interaction="none"]) .language-switcher {
+.cinematic-scroll:not([data-interaction="none"]) .language-switcher,
+.cinematic-scroll[data-contact-open="true"] .language-switcher {
   opacity: 0;
   pointer-events: none;
   transform: translateY(-8px);
 }
 
-.language-switcher-selection {
-  position: absolute;
-  z-index: 1;
-  top: 2px;
-  bottom: 2px;
-  left: 2px;
-  width: calc(50% - 2px);
-  border: 1px solid rgba(143, 220, 240, 0.22);
-  background:
-    linear-gradient(145deg, rgba(143, 220, 240, 0.08), transparent),
-    rgba(17, 24, 27, 0.92);
-  box-shadow: inset 0 -1px 0 rgba(80, 230, 255, 0.48);
-  pointer-events: none;
-  transition: transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-.language-switcher[data-active-locale="en"] .language-switcher-selection {
-  transform: translateX(100%);
-}
-
 .language-switcher button {
   position: relative;
-  z-index: 2;
-  width: 100%;
+  width: auto;
   min-width: 0;
-  height: 100%;
+  height: auto;
   min-height: 0;
-  padding: 0;
+  padding: 2px 3px;
   border: 0;
   border-radius: 0;
   background: transparent;
-  color: rgba(216, 226, 230, 0.38);
+  color: #ffffff;
   font-family: var(--font-terminal);
-  font-size: clamp(9px, 0.7vw, 11px);
+  font-size: clamp(10px, 0.78vw, 12px);
   font-weight: 600;
   letter-spacing: 0.14em;
   text-shadow: none;
   transition:
-    color 160ms ease,
-    text-shadow 160ms ease;
+    background-color 120ms ease,
+    box-shadow 120ms ease;
 }
 
 .language-switcher button span {
@@ -1489,21 +1515,21 @@ a {
 
 .language-switcher button:hover,
 .language-switcher button:focus-visible {
-  background: transparent;
+  background: rgba(0, 120, 212, 0.42);
   color: #ffffff;
-  text-shadow: 0 0 8px rgba(80, 230, 255, 0.32);
+  text-shadow: none;
 }
 
 .language-switcher button:focus-visible {
-  outline: 1px dashed rgba(143, 220, 240, 0.72);
-  outline-offset: -2px;
+  outline: 1px solid #ffffff;
+  outline-offset: 2px;
 }
 
 .language-switcher button[aria-pressed="true"] {
-  background: transparent;
-  color: #effcff;
+  background: #ffffff;
+  color: #000000;
   box-shadow: none;
-  text-shadow: 0 0 8px rgba(80, 230, 255, 0.26);
+  text-shadow: none;
 }
 
 /* PowerShell terminal theme */
@@ -2056,15 +2082,15 @@ a {
   .language-switcher {
     top: 29px;
     right: 18px;
-    width: 116px;
-    height: 22px;
+    width: auto;
+    height: auto;
   }
 
   .language-switcher button {
-    height: 100%;
+    height: auto;
     min-height: 0;
-    padding: 0;
-    font-size: 9px;
+    padding: 2px 3px;
+    font-size: 10px;
   }
 
 
@@ -2313,9 +2339,6 @@ a {
     animation-delay: 0s;
   }
 
-  .language-switcher-selection {
-    transition-duration: 0.01ms;
-  }
 }
 
 @keyframes ram-module-open-mobile {

@@ -29,6 +29,7 @@ import {
   SRGBColorSpace,
   Vector3,
 } from "three";
+import { REAR_PORT_COLORS } from "./contact-links";
 import { range, type ProgressSource } from "./scroll-progress";
 import type {
   RearPortHover,
@@ -45,7 +46,7 @@ const CPU_FACE_WIDTH_SCALE = 1.0;
 const CPU_FACE_HEIGHT_SCALE = 1.02;
 const CPU_FACE_CORNER_RADIUS = 84;
 const CPU_FACE_TEXTURE_INSET = 30;
-const HARDWARE_INTERACTION_START = 0.92;
+const HARDWARE_INTERACTION_START = 0.43;
 const INTERACTION_REVEAL_DELAY = 0.14;
 const INTERACTION_REVEAL_STEP = 0.58;
 const INTERACTION_REVEAL_GLOW_DURATION = 0.21;
@@ -62,6 +63,7 @@ type PcSceneProps = {
   cpuFaceHeightScale?: number;
   cpuFaceTextureInset?: number;
   cpuFaceWidthScale?: number;
+  hoveredRearPort: RearPortHover | null;
   hoveredTarget: SceneHover | null;
   interaction: SceneInteraction;
   interactionReady: boolean;
@@ -76,6 +78,7 @@ type PcSceneProps = {
   ramFocusActive: boolean;
   rearInteractionReady: boolean;
   rearProgressSource: ProgressSource;
+  selectedRearPort: RearPortId | null;
 };
 
 type InteractionHitboxProps = {
@@ -1743,6 +1746,7 @@ export function PcScene({
   cpuFaceHeightScale = CPU_FACE_HEIGHT_SCALE,
   cpuFaceTextureInset = CPU_FACE_TEXTURE_INSET,
   cpuFaceWidthScale = CPU_FACE_WIDTH_SCALE,
+  hoveredRearPort,
   hoveredTarget,
   interaction,
   interactionReady,
@@ -1757,6 +1761,7 @@ export function PcScene({
   ramFocusActive,
   rearInteractionReady,
   rearProgressSource,
+  selectedRearPort,
 }: PcSceneProps) {
   const gltf = useGLTF(MODEL_URL);
   const preparedModel = useMemo(() => {
@@ -1803,6 +1808,7 @@ export function PcScene({
   const ramCameraTweenRef = useRef<gsap.core.Tween | null>(null);
   const introHighlightTimelineRef = useRef<gsap.core.Timeline | null>(null);
   const hoverHighlightTimelineRef = useRef<gsap.core.Timeline | null>(null);
+  const rearPortHighlightTimelineRef = useRef<gsap.core.Timeline | null>(null);
   const interactionKindRef = useRef<SceneInteraction>(null);
   const ramCameraAmountRef = useRef({ pullback: 0, selection: 0, value: 0 });
   const ramFocusFrameReadyRef = useRef(false);
@@ -1986,29 +1992,30 @@ export function PcScene({
     }
     const createRearPortTarget = (
       id: RearPortId,
-      parts: Object3D[],
+      part: Object3D,
     ) => {
-      const bounds = new Box3();
-      parts.forEach((part) => bounds.expandByObject(part));
+      const bounds = new Box3().setFromObject(part);
       const center = bounds.getCenter(new Vector3()).sub(wholeCenter);
       const partSize = bounds.getSize(new Vector3());
 
       return {
+        color: REAR_PORT_COLORS[id],
+        highlightMaterials: isolateHighlightMaterials([part]),
         id,
         position: center.toArray() as [number, number, number],
         size: [
-          Math.max(partSize.x * 1.45, 0.018),
-          Math.max(partSize.y * 1.55, 0.014),
-          Math.max(partSize.z * 1.35, 0.018),
+          Math.max(partSize.x * 1.18, 0.012),
+          Math.max(partSize.y * 1.22, 0.012),
+          Math.max(partSize.z * 1.2, 0.014),
         ] as [number, number, number],
       };
     };
     const rearPortTargets = [
-      createRearPortTarget("github", mainRearPorts.slice(0, 3)),
-      createRearPortTarget("linkedin", mainRearPorts.slice(3, 5)),
-      createRearPortTarget("instagram", mainRearPorts.slice(5, 8)),
-      createRearPortTarget("x", mainRearPorts.slice(8, 12)),
-      createRearPortTarget("contact", lowerRearPorts),
+      createRearPortTarget("github", mainRearPorts[1]!),
+      createRearPortTarget("linkedin", mainRearPorts[3]!),
+      createRearPortTarget("instagram", mainRearPorts[6]!),
+      createRearPortTarget("location", mainRearPorts[9]!),
+      createRearPortTarget("contact", mainRearPorts[11]!),
     ];
     const rearPortBounds = new Box3();
     [...mainRearPorts, ...lowerRearPorts].forEach((part) =>
@@ -2362,6 +2369,9 @@ export function PcScene({
           ...setup.ramHighlightMaterials.flat(),
           ...setup.coolerHighlightMaterials,
           ...setup.gpuHighlightMaterials,
+          ...setup.rearPortTargets.flatMap(
+            (target) => target.highlightMaterials,
+          ),
         ].map((state) => state.material),
       );
       isolatedMaterials.forEach((material) => material.dispose());
@@ -2447,18 +2457,18 @@ export function PcScene({
       .add(new Vector3(rigX, rigY, 0));
     const rearOrbitControl = new Vector3(
       mobile ? -4.8 : -4.2,
-      rearPortTarget.y + (mobile ? 1.5 : 2.3),
+      rearPortTarget.y + (mobile ? 1.05 : 1.65),
       mobile ? 5.4 : 5.8,
     );
     const rearOverviewPosition = rearPortTarget
       .clone()
-      .add(new Vector3(mobile ? -7.2 : -6.2, 0.4, mobile ? 0.45 : 0.65));
+      .add(new Vector3(mobile ? -7.2 : -6.2, 0.08, mobile ? 0.45 : 0.65));
     const rearCloseTarget = rearPortTarget
       .clone()
-      .add(new Vector3(0, mobile ? 0.4 : 0.5, mobile ? -0.12 : -0.18));
+      .add(new Vector3(0, mobile ? -0.08 : -0.12, mobile ? -0.12 : -0.18));
     const rearClosePosition = rearCloseTarget
       .clone()
-      .add(new Vector3(mobile ? -3.4 : -2.95, 0, 0));
+      .add(new Vector3(mobile ? -4.15 : -3.65, 0, 0));
     finalCameraStateRef.current.position.copy(fullPosition);
     finalCameraStateRef.current.target.copy(fullTarget);
     finalCameraStateRef.current.topDistance = mobile ? 5.2 : 4.2;
@@ -2795,6 +2805,62 @@ export function PcScene({
       timeline.kill();
     };
   }, [hoveredTarget, interaction, interactionReady, setup]);
+
+  useEffect(() => {
+    rearPortHighlightTimelineRef.current?.kill();
+
+    const duration = window.matchMedia("(prefers-reduced-motion: reduce)")
+      .matches
+      ? 0.01
+      : 0.28;
+    const timeline = gsap.timeline();
+
+    setup.rearPortTargets.forEach((target) => {
+      const portColor = new Color(target.color);
+      const isHovered = hoveredRearPort?.id === target.id;
+      const isSelected = selectedRearPort === target.id;
+      const intensityBoost = isHovered ? 2.1 : isSelected ? 1.05 : 0.24;
+
+      target.highlightMaterials.forEach((state) => {
+        const emissiveColor = rearInteractionReady ? portColor : state.color;
+        const emissiveIntensity = rearInteractionReady
+          ? state.intensity + intensityBoost
+          : state.intensity;
+
+        timeline.to(
+          state.material.emissive,
+          {
+            b: emissiveColor.b,
+            duration,
+            ease: "power2.out",
+            g: emissiveColor.g,
+            r: emissiveColor.r,
+          },
+          0,
+        );
+        timeline.to(
+          state.material,
+          {
+            duration,
+            ease: "power2.out",
+            emissiveIntensity,
+          },
+          0,
+        );
+      });
+    });
+
+    rearPortHighlightTimelineRef.current = timeline;
+
+    return () => {
+      timeline.kill();
+    };
+  }, [
+    hoveredRearPort?.id,
+    rearInteractionReady,
+    selectedRearPort,
+    setup,
+  ]);
 
   const ramInteractionActive =
     interactionReady && interaction?.kind === "ram";
@@ -3324,17 +3390,38 @@ export function PcScene({
           size={setup.gpuTarget.size}
           target={{ kind: "gpu" }}
         />
-        {setup.rearPortTargets.map((target) => (
-          <RearPortHitbox
-            enabled={rearInteractionReady}
-            key={`rear-port-${target.id}`}
-            onActivate={onRearPortClick}
-            onHoverChange={onRearPortHoverChange}
-            portId={target.id}
-            position={target.position}
-            size={target.size}
-          />
-        ))}
+        {setup.rearPortTargets.map((target) => {
+          const isHovered = hoveredRearPort?.id === target.id;
+          const isSelected = selectedRearPort === target.id;
+
+          return (
+            <group key={target.id}>
+              <RearPortHitbox
+                enabled={rearInteractionReady}
+                onActivate={onRearPortClick}
+                onHoverChange={onRearPortHoverChange}
+                portId={target.id}
+                position={target.position}
+                size={target.size}
+              />
+              <pointLight
+                color={target.color}
+                decay={2}
+                distance={0.85}
+                intensity={
+                  !rearInteractionReady
+                    ? 0
+                    : isHovered
+                      ? 0.9
+                      : isSelected
+                        ? 0.45
+                        : 0.08
+                }
+                position={target.position}
+              />
+            </group>
+          );
+        })}
         <group ref={cpuGroupRef} position={setup.localCpuCenter}>
           <group position={setup.cpuMeshLocalPosition}>
             <primitive object={setup.cpu} />

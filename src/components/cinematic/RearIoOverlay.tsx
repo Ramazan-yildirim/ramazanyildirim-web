@@ -1,6 +1,12 @@
 "use client";
 
 import { useState, type CSSProperties, type FormEvent } from "react";
+import {
+  CONTACT_PORT_COLOR,
+  CONTACT_PROFILE,
+  EXTERNAL_REAR_PORT_IDS,
+  REAR_PORT_LINKS,
+} from "./contact-links";
 import { UI_COPY, type Locale } from "./i18n";
 import type {
   RearPortHover,
@@ -24,16 +30,10 @@ type AnchorStyle = CSSProperties & {
   "--anchor-y": string;
 };
 
-const SOCIAL_PORTS = [
-  { id: "github", label: "GITHUB", signal: "DEV / 01" },
-  { id: "linkedin", label: "LINKEDIN", signal: "WORK / 02" },
-  { id: "instagram", label: "INSTAGRAM", signal: "SOCIAL / 03" },
-  { id: "x", label: "X / TWITTER", signal: "FEED / 04" },
-] satisfies ReadonlyArray<{
-  id: Exclude<RearPortId, "contact">;
-  label: string;
-  signal: string;
-}>;
+type PortButtonStyle = CSSProperties & {
+  "--port-color": string;
+  "--port-index": number;
+};
 
 function getAnchorStyle(anchor: ScreenAnchor): AnchorStyle {
   return {
@@ -57,7 +57,36 @@ export function RearIoOverlay({
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const name = String(formData.get("name") ?? "").trim();
+    const senderEmail = String(formData.get("email") ?? "").trim();
+    const message = String(formData.get("message") ?? "").trim();
+    const subject =
+      locale === "tr"
+        ? "Portfolyo iletişim mesajı — " + name
+        : "Portfolio contact message — " + name;
+    const body =
+      locale === "tr"
+        ? "Gönderen: " +
+          name +
+          "\nE-posta: " +
+          senderEmail +
+          "\n\n" +
+          message
+        : "From: " +
+          name +
+          "\nEmail: " +
+          senderEmail +
+          "\n\n" +
+          message;
+
     setFormSubmitted(true);
+    window.location.href =
+      CONTACT_PROFILE.emailHref +
+      "?subject=" +
+      encodeURIComponent(subject) +
+      "&body=" +
+      encodeURIComponent(body);
   };
 
   if (!ready) return null;
@@ -75,20 +104,40 @@ export function RearIoOverlay({
       </div>
 
       <nav aria-label={copy.navLabel} className="rear-port-dock">
-        {SOCIAL_PORTS.map((port, index) => (
-          <button
-            aria-label={copy.portAria(port.label)}
-            key={port.id}
-            onClick={() => onSelectPort(port.id)}
-            style={{ "--port-index": index } as CSSProperties}
-            type="button"
-          >
-            <span>{port.signal}</span>
-            <strong>{port.label}</strong>
-            <i aria-hidden="true" />
-          </button>
-        ))}
-        <button onClick={onOpenContact} type="button">
+        {EXTERNAL_REAR_PORT_IDS.map((portId, index) => {
+          const port = REAR_PORT_LINKS[portId];
+
+          return (
+            <button
+              aria-label={copy.portAria(port.label)}
+              key={portId}
+              onClick={() => onSelectPort(portId)}
+              style={
+                {
+                  "--port-color": port.color,
+                  "--port-index": index,
+                } as PortButtonStyle
+              }
+              title={port.value}
+              type="button"
+            >
+              <span>{port.signal}</span>
+              <strong>{port.label}</strong>
+              <i aria-hidden="true" />
+            </button>
+          );
+        })}
+        <button
+          aria-label={copy.portAria(copy.contact)}
+          onClick={onOpenContact}
+          style={
+            {
+              "--port-color": CONTACT_PORT_COLOR,
+              "--port-index": EXTERNAL_REAR_PORT_IDS.length,
+            } as PortButtonStyle
+          }
+          type="button"
+        >
           <span>DIRECT / 05</span>
           <strong>{copy.contact}</strong>
           <i aria-hidden="true" />
@@ -129,6 +178,33 @@ export function RearIoOverlay({
           </button>
           <p>DIRECT CHANNEL / 05</p>
           <h2>{copy.contactHeading}</h2>
+          <nav aria-label={copy.detailsLabel} className="rear-contact-links">
+            <a href={CONTACT_PROFILE.emailHref}>
+              <span>{copy.email}</span>
+              <strong>{CONTACT_PROFILE.email}</strong>
+              <i aria-hidden="true">↗</i>
+            </a>
+            {(["linkedin", "github", "instagram", "location"] as const).map(
+              (portId) => {
+                const port = REAR_PORT_LINKS[portId];
+
+                return (
+                  <a
+                    href={port.href}
+                    key={portId}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    <span>
+                      {portId === "location" ? copy.location : port.label}
+                    </span>
+                    <strong>{port.value}</strong>
+                    <i aria-hidden="true">↗</i>
+                  </a>
+                );
+              },
+            )}
+          </nav>
           <form onSubmit={handleSubmit}>
             <label>
               <span>{copy.name}</span>

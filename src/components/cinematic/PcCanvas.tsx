@@ -16,6 +16,7 @@ import type {
 } from "./scene-interaction";
 
 type PcCanvasProps = {
+  hoveredRearPort: RearPortHover | null;
   hoveredTarget: SceneHover | null;
   interaction: SceneInteraction;
   interactionReady: boolean;
@@ -31,6 +32,7 @@ type PcCanvasProps = {
   ramFocusActive: boolean;
   rearInteractionReady: boolean;
   rearProgressSource: ProgressSource;
+  selectedRearPort: RearPortId | null;
 };
 
 function SceneLoader({ locale }: { locale: Locale }) {
@@ -63,6 +65,7 @@ function SceneLoader({ locale }: { locale: Locale }) {
 }
 
 export function PcCanvas({
+  hoveredRearPort,
   hoveredTarget,
   interaction,
   interactionReady,
@@ -78,6 +81,7 @@ export function PcCanvas({
   ramFocusActive,
   rearInteractionReady,
   rearProgressSource,
+  selectedRearPort,
 }: PcCanvasProps) {
   return (
     <Canvas
@@ -109,6 +113,7 @@ export function PcCanvas({
     >
       <Suspense fallback={<SceneLoader locale={locale} />}>
         <PcScene
+          hoveredRearPort={hoveredRearPort}
           hoveredTarget={hoveredTarget}
           interaction={interaction}
           interactionReady={interactionReady}
@@ -123,6 +128,7 @@ export function PcCanvas({
           ramFocusActive={ramFocusActive}
           rearInteractionReady={rearInteractionReady}
           rearProgressSource={rearProgressSource}
+          selectedRearPort={selectedRearPort}
         />
       </Suspense>
     </Canvas>

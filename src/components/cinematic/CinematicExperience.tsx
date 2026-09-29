@@ -14,6 +14,7 @@ import {
   useSyncExternalStore,
 } from "react";
 import heroLogo from "../../../RamazanYildirim_Logo.png";
+import { REAR_PORT_LINKS } from "./contact-links";
 import { HardwareInteractionOverlay } from "./HardwareInteractionOverlay";
 import { UI_COPY, type Locale } from "./i18n";
 import { RearIoOverlay } from "./RearIoOverlay";
@@ -40,7 +41,7 @@ const PcCanvas = dynamic(
 
 gsap.registerPlugin(ScrollTrigger, useGSAP);
 
-const HARDWARE_INTERACTION_START = 0.92;
+const HARDWARE_INTERACTION_START = 0.43;
 const MAIN_SEQUENCE_END = 520 / 720;
 const REAR_INTERACTION_START = 0.96;
 const LOCALE_STORAGE_KEY = "portfolio-locale-v1";
@@ -149,7 +150,14 @@ export function CinematicExperience() {
   const handleRearPortClick = useCallback((portId: RearPortId) => {
     setHoveredRearPort(null);
     setSelectedRearPort(portId);
-    if (portId === "contact") setContactOpen(true);
+
+    if (portId === "contact") {
+      setContactOpen(true);
+      return;
+    }
+
+    setContactOpen(false);
+    window.open(REAR_PORT_LINKS[portId].href, "_blank", "noopener,noreferrer");
   }, []);
   const handleLocaleChange = useCallback((nextLocale: Locale) => {
     updateLocale(nextLocale);
@@ -296,12 +304,14 @@ export function CinematicExperience() {
     <section
       ref={rootRef}
       className="cinematic-scroll"
+      data-contact-open={contactOpen ? "true" : "false"}
       data-interaction={interaction?.kind ?? "none"}
       data-locale={locale}
       data-phase="focus"
     >
       <div className="cinematic-viewport" style={{ position: "fixed" }}>
         <PcCanvas
+          hoveredRearPort={hoveredRearPort}
           hoveredTarget={hoveredTarget}
           interaction={interaction}
           interactionReady={interactionReady}
@@ -317,6 +327,7 @@ export function CinematicExperience() {
           ramFocusActive={ramFocusActive}
           rearInteractionReady={rearInteractionReady}
           rearProgressSource={rearProgressSource}
+          selectedRearPort={selectedRearPort}
         />
 
         <div className="cinematic-shade" aria-hidden="true" />
@@ -325,11 +336,9 @@ export function CinematicExperience() {
         <div
           aria-label={UI_COPY[locale].language.label}
           className="language-switcher"
-          data-active-locale={locale}
           role="group"
         >
-          <span aria-hidden="true" className="language-switcher-selection" />
-          {(["tr", "en"] as const).map((language) => (
+          {(["en", "tr"] as const).map((language) => (
             <button
               aria-label={UI_COPY[locale].language[language]}
               aria-pressed={locale === language}
@@ -407,7 +416,7 @@ export function CinematicExperience() {
           hoveredPort={hoveredRearPort}
           locale={locale}
           onCloseContact={() => setContactOpen(false)}
-          onOpenContact={() => setContactOpen(true)}
+          onOpenContact={() => handleRearPortClick("contact")}
           onSelectPort={handleRearPortClick}
           ready={rearInteractionReady}
           selectedPort={selectedRearPort}

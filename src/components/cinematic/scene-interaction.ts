@@ -20,7 +20,7 @@ export type RearPortId =
   | "github"
   | "linkedin"
   | "instagram"
-  | "x"
+  | "location"
   | "contact";
 
 export type RearPortHover = {
