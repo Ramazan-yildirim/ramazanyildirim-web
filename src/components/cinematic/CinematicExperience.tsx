@@ -325,8 +325,10 @@ export function CinematicExperience() {
         <div
           aria-label={UI_COPY[locale].language.label}
           className="language-switcher"
+          data-active-locale={locale}
           role="group"
         >
+          <span aria-hidden="true" className="language-switcher-selection" />
           {(["tr", "en"] as const).map((language) => (
             <button
               aria-label={UI_COPY[locale].language[language]}
@@ -335,7 +337,7 @@ export function CinematicExperience() {
               onClick={() => handleLocaleChange(language)}
               type="button"
             >
-              {language.toUpperCase()}
+              <span>{language.toUpperCase()}</span>
             </button>
           ))}
         </div>

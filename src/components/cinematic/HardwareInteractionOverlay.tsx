@@ -30,6 +30,39 @@ function getAnchorStyle(anchor: ScreenAnchor): AnchorStyle {
   };
 }
 
+type TerminalTitlebarProps = {
+  closeLabel: string;
+  onClose: () => void;
+};
+
+function TerminalTitlebar({ closeLabel, onClose }: TerminalTitlebarProps) {
+  return (
+    <header className="terminal-titlebar">
+      <div className="terminal-tab">
+        <span aria-hidden="true" className="terminal-powershell-icon">
+          &gt;_
+        </span>
+        <p>Windows PowerShell</p>
+      </div>
+      <span aria-hidden="true" className="terminal-new-tab">
+        +
+      </span>
+      <div className="terminal-window-actions">
+        <i aria-hidden="true" />
+        <i aria-hidden="true" />
+        <button
+          aria-label={closeLabel}
+          className="interaction-close terminal-window-close"
+          onClick={onClose}
+          type="button"
+        >
+          ×
+        </button>
+      </div>
+    </header>
+  );
+}
+
 export function HardwareInteractionOverlay({
   hoveredTarget,
   interaction,
@@ -71,48 +104,36 @@ export function HardwareInteractionOverlay({
           role="dialog"
         >
           <span className="ram-panel-connector" aria-hidden="true" />
-          <div className="ram-terminal-frame">
-            <div className="ram-panel-header">
-              <div className="ram-terminal-title">
-                <span className="ram-terminal-lights" aria-hidden="true">
-                  <i />
-                  <i />
-                  <i />
-                </span>
-                <p>
-                  ramazan@portfolio: ~ — bash
-                </p>
-              </div>
-              <button
-                aria-label={copy.closeRam}
-                className="interaction-close"
-                onClick={onClose}
-                type="button"
-              >
-                ×
-              </button>
-            </div>
+          <div className="ram-terminal-frame terminal-window">
+            <TerminalTitlebar closeLabel={copy.closeRam} onClose={onClose} />
             <div className="ram-terminal-output">
               <p className="ram-terminal-command">
-                <strong>ramazan@portfolio</strong>
-                <span aria-hidden="true">:~$</span> ./memory-info --slot={String(
-                  interaction.ramIndex + 1,
-                ).padStart(2, "0")}
+                <strong>PS C:\Portfolio\Memory&gt;</strong>{" "}
+                Get-MemoryProfile -Slot{" "}
+                {String(interaction.ramIndex + 1).padStart(2, "0")}
               </p>
               <div className="ram-panel-data">
-                <span>system: GNU/Linux</span>
-                <span>memory: {copy.memory}</span>
-                <span>status: [ OK ] {copy.moduleActive}</span>
+                <span>
+                  <b>DeviceLocator</b><i>:</i>
+                  DIMM_{String(interaction.ramIndex + 1).padStart(2, "0")}
+                </span>
+                <span>
+                  <b>MemoryType</b><i>:</i>
+                  {copy.memory}
+                </span>
+                <span>
+                  <b>Status</b><i>:</i>
+                  <em>{copy.moduleActive}</em>
+                </span>
               </div>
               <h2>
-                <span aria-hidden="true">&gt;</span> {ramContent.code}
+                <span aria-hidden="true">./</span>
+                {ramContent.code}
               </h2>
               <p className="ram-panel-copy">{ramContent.text}</p>
             </div>
             <div className="ram-terminal-footer" aria-hidden="true">
-              <span>
-                <strong>ramazan@portfolio</strong>:~$
-              </span>
+              <strong>PS C:\Portfolio\Memory&gt;</strong>
               <i />
             </div>
           </div>
@@ -126,33 +147,39 @@ export function HardwareInteractionOverlay({
           className="cooling-system-view"
           role="dialog"
         >
-          <button
-            aria-label={copy.closeCooling}
-            className="interaction-close cooling-system-close"
-            onClick={onClose}
-            type="button"
-          >
-            ×
-          </button>
-          <section className="cooling-system-content">
-            <p>{copy.cooling.live}</p>
-            <h2>{copy.cooling.title}</h2>
-            <div className="cooling-system-rule" aria-hidden="true" />
-            <dl>
-              <div>
-                <dt>{copy.cooling.loop}</dt>
-                <dd>{copy.cooling.loopValue}</dd>
-              </div>
-              <div>
-                <dt>{copy.cooling.status}</dt>
-                <dd>{copy.cooling.statusValue}</dd>
-              </div>
-              <div>
-                <dt>{copy.cooling.profile}</dt>
-                <dd>{copy.cooling.profileValue}</dd>
-              </div>
-            </dl>
-            <p className="cooling-system-copy">{copy.cooling.copy}</p>
+          <section className="cooling-system-content terminal-window">
+            <TerminalTitlebar
+              closeLabel={copy.closeCooling}
+              onClose={onClose}
+            />
+            <div className="cooling-terminal-output">
+              <p className="cooling-terminal-command">
+                <strong>PS C:\Portfolio\Thermals&gt;</strong>{" "}
+                Get-CoolingProfile
+              </p>
+              <p className="cooling-terminal-session">{copy.cooling.live}</p>
+              <h2>{copy.cooling.title}</h2>
+              <div className="cooling-system-rule" aria-hidden="true" />
+              <dl>
+                <div>
+                  <dt>{copy.cooling.loop}</dt>
+                  <dd>{copy.cooling.loopValue}</dd>
+                </div>
+                <div>
+                  <dt>{copy.cooling.status}</dt>
+                  <dd>{copy.cooling.statusValue}</dd>
+                </div>
+                <div>
+                  <dt>{copy.cooling.profile}</dt>
+                  <dd>{copy.cooling.profileValue}</dd>
+                </div>
+              </dl>
+              <p className="cooling-system-copy">{copy.cooling.copy}</p>
+            </div>
+            <div className="ram-terminal-footer" aria-hidden="true">
+              <strong>PS C:\Portfolio\Thermals&gt;</strong>
+              <i />
+            </div>
           </section>
         </div>
       ) : null}
